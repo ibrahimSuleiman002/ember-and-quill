@@ -7,7 +7,7 @@
 
   <!-- Open Graph -->
   <meta property="og:title" content="Ember & Quill – Modern Restaurant">
-  <meta property="og:description" content="Where fire meets craft, and every meal tells a story.">
+  <meta property="og:description" content="Modern Nigerian dining, crafted over fire.">
   <meta property="og:image" content="https://ember-and-quill.vercel.app/og-image.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -17,835 +17,77 @@
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Ember & Quill – Modern Restaurant">
-  <meta name="twitter:description" content="Where fire meets craft, and every meal tells a story.">
+  <meta name="twitter:description" content="Modern Nigerian dining, crafted over fire.">
   <meta name="twitter:image" content="https://ember-and-quill.vercel.app/og-image.jpg">
+
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Instrument+Sans:wght@500;600;700&display=swap" rel="stylesheet">
-  <style>
-    *, *::before, *::after {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Instrument+Sans:wght@500;600;700&display=swap" rel="stylesheet">
 
-    :root {
-      --charred: #1A110A;
-      --cream: #F5EFE6;
-      --white: #FFFFFF;
-      --amber: #F2A24B;
-      --dark-btn: #1A0F08;
-      --panel: rgba(10, 7, 5, 0.88);
-      --overlay: rgba(10, 7, 5, 0.85);
-      --border: rgba(245, 239, 230, 0.15);
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
-
-    body {
-      font-family: 'Instrument Sans', sans-serif;
-      background-color: var(--charred);
-      color: var(--cream);
-      font-size: 1.125rem;
-      font-weight: 500;
-      line-height: 1.7;
-      -webkit-font-smoothing: antialiased;
-      overflow-x: hidden;
-    }
-
-    /* ── Navigation ── */
-    nav {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 1000;
-      padding: 1.25rem 2rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background-color: rgba(10, 7, 5, 0.95);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .nav-logo {
-      font-family: 'Fraunces', serif;
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: var(--white);
-      text-decoration: none;
-    }
-
-    .nav-logo span {
-      color: var(--amber);
-    }
-
-    .nav-links {
-      display: flex;
-      gap: 2.5rem;
-      list-style: none;
-    }
-
-    .nav-links a {
-      color: var(--cream);
-      text-decoration: none;
-      font-size: 0.9375rem;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      transition: color 0.2s ease;
-    }
-
-    .nav-links a:hover {
-      color: var(--amber);
-    }
-
-    .nav-reserve {
-      background-color: var(--amber);
-      color: var(--dark-btn) !important;
-      padding: 0.5rem 1.25rem;
-      border-radius: 4px;
-      font-weight: 700;
-      transition: background-color 0.2s ease, transform 0.2s ease;
-    }
-
-    .nav-reserve:hover {
-      background-color: var(--cream);
-      transform: translateY(-1px);
-    }
-
-    /* ── Full-bleed section base ── */
-    .section-full {
-      position: relative;
-      padding: 8rem 2rem;
-      background-size: cover;
-      background-position: center;
-      display: flex;
-      align-items: center;
-    }
-
-    .section-full::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: var(--overlay);
-      z-index: 0;
-    }
-
-    .section-full > * {
-      position: relative;
-      z-index: 1;
-    }
-
-    /* ── Text panel ── */
-    .text-panel {
-      background-color: var(--panel);
-      padding: 32px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-    }
-
-    /* ── Gradient fades between sections ── */
-    .fade-section {
-      position: relative;
-    }
-
-    .fade-section::after {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 200px;
-      background: linear-gradient(to bottom, transparent, var(--charred));
-      pointer-events: none;
-      z-index: 2;
-    }
-
-    .fade-section::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 200px;
-      background: linear-gradient(to top, transparent, var(--charred));
-      pointer-events: none;
-      z-index: 2;
-    }
-
-    /* ── Hero ── */
-    .hero {
-      position: relative;
-      height: 100vh;
-      min-height: 640px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      background-image: url('https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1920&q=80');
-      background-size: cover;
-      background-position: center;
-    }
-
-    .hero::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: var(--overlay);
-    }
-
-    .hero-content {
-      position: relative;
-      z-index: 1;
-      max-width: 800px;
-      padding: 0 2rem;
-    }
-
-    .hero-wordmark {
-      font-family: 'Fraunces', serif;
-      font-size: clamp(3.5rem, 9vw, 7rem);
-      font-weight: 700;
-      letter-spacing: 0.01em;
-      line-height: 1.05;
-      margin-bottom: 1.5rem;
-      color: var(--white);
-    }
-
-    .hero-wordmark .amp {
-      color: var(--amber);
-      font-style: italic;
-    }
-
-    .hero-tagline {
-      font-size: 1.25rem;
-      font-weight: 500;
-      color: var(--cream);
-      margin-bottom: 3rem;
-      letter-spacing: 0.02em;
-    }
-
-    .hero-rule {
-      width: 60px;
-      height: 2px;
-      background-color: var(--amber);
-      margin: 0 auto 2.5rem;
-    }
-
-    .btn {
-      display: inline-block;
-      padding: 1rem 2.5rem;
-      font-family: 'Instrument Sans', sans-serif;
-      font-size: 1rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      text-decoration: none;
-      border-radius: 4px;
-      transition: all 0.25s ease;
-      cursor: pointer;
-      border: none;
-    }
-
-    .btn-primary {
-      background-color: var(--amber);
-      color: var(--dark-btn);
-    }
-
-    .btn-primary:hover {
-      background-color: var(--cream);
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(242, 162, 75, 0.3);
-    }
-
-    .btn-outline {
-      background-color: var(--panel);
-      color: var(--white);
-      border: 1px solid var(--border);
-    }
-
-    .btn-outline:hover {
-      border-color: var(--amber);
-      color: var(--amber);
-    }
-
-    /* ── About ── */
-    .about {
-      background-image: url('https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1920&q=80');
-    }
-
-    .about .section-inner {
-      max-width: 720px;
-      margin: 0 auto;
-      text-align: center;
-    }
-
-    .section-label {
-      font-size: 0.875rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--amber);
-      margin-bottom: 1rem;
-    }
-
-    .section-title {
-      font-family: 'Fraunces', serif;
-      font-size: clamp(2rem, 4.5vw, 3rem);
-      font-weight: 700;
-      line-height: 1.15;
-      margin-bottom: 1.5rem;
-      color: var(--white);
-    }
-
-    .section-text {
-      font-size: 1.125rem;
-      font-weight: 500;
-      line-height: 1.7;
-      color: var(--cream);
-    }
-
-    .section-text + .section-text {
-      margin-top: 1.25rem;
-    }
-
-    /* ── Menu ── */
-    .menu {
-      background-image: url('https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1920&q=80');
-    }
-
-    .menu .section-inner {
-      max-width: 900px;
-      margin: 0 auto;
-    }
-
-    .menu-header {
-      text-align: right;
-      margin-bottom: 2rem;
-    }
-
-    .menu-list {
-      list-style: none;
-    }
-
-    .menu-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      padding: 1.25rem 0;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .menu-item:first-child {
-      border-top: 1px solid var(--border);
-    }
-
-    .menu-item-info {
-      flex: 1;
-      padding-right: 2rem;
-    }
-
-    .menu-item-name {
-      font-family: 'Fraunces', serif;
-      font-size: 1.375rem;
-      font-weight: 700;
-      margin-bottom: 0.25rem;
-      color: var(--white);
-    }
-
-    .menu-item-desc {
-      font-size: 1rem;
-      font-weight: 500;
-      color: var(--cream);
-      line-height: 1.5;
-    }
-
-    .menu-item-price {
-      font-family: 'Fraunces', serif;
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: var(--amber);
-      white-space: nowrap;
-    }
-
-    .menu-cta {
-      text-align: center;
-      margin-top: 2.5rem;
-    }
-
-    /* ── Gallery ── */
-    .gallery {
-      padding: 0;
-      position: relative;
-    }
-
-    .gallery-strip {
-      display: flex;
-      overflow-x: auto;
-      scroll-snap-type: x mandatory;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-    }
-
-    .gallery-strip::-webkit-scrollbar {
-      display: none;
-    }
-
-    .gallery-item {
-      flex: 0 0 400px;
-      height: 500px;
-      position: relative;
-      scroll-snap-align: start;
-      overflow: hidden;
-    }
-
-    .gallery-item img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      transition: transform 0.6s ease;
-    }
-
-    .gallery-item:hover img {
-      transform: scale(1.04);
-    }
-
-    .gallery-item::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: var(--overlay);
-    }
-
-    .gallery-caption {
-      position: absolute;
-      bottom: 1.5rem;
-      left: 1.5rem;
-      right: 1.5rem;
-      z-index: 1;
-      background-color: var(--panel);
-      padding: 16px 20px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-    }
-
-    .gallery-caption h4 {
-      font-family: 'Fraunces', serif;
-      font-size: 1.125rem;
-      font-weight: 700;
-      margin-bottom: 0.25rem;
-      color: var(--white);
-    }
-
-    .gallery-caption p {
-      font-size: 0.9375rem;
-      font-weight: 500;
-      color: var(--cream);
-    }
-
-    /* ── Reservations ── */
-    .reservations {
-      background-image: url('https://images.unsplash.com/photo-1559339352-11d035aa65de?w=1920&q=80');
-    }
-
-    .reservations .section-inner {
-      max-width: 1100px;
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 3rem;
-      align-items: start;
-    }
-
-    .reservation-form {
-      display: flex;
-      flex-direction: column;
-      gap: 1.25rem;
-    }
-
-    .form-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1.25rem;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 0.375rem;
-    }
-
-    .form-group label {
-      font-size: 0.875rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--amber);
-    }
-
-    .form-group input,
-    .form-group select,
-    .form-group textarea {
-      font-family: 'Instrument Sans', sans-serif;
-      font-size: 1rem;
-      font-weight: 500;
-      padding: 0.875rem 1rem;
-      background-color: rgba(10, 7, 5, 0.6);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      color: var(--white);
-      transition: border-color 0.2s ease;
-    }
-
-    .form-group input:focus,
-    .form-group select:focus,
-    .form-group textarea:focus {
-      outline: none;
-      border-color: var(--amber);
-    }
-
-    .form-group input::placeholder,
-    .form-group textarea::placeholder {
-      color: rgba(245, 239, 230, 0.5);
-    }
-
-    .reservation-info h3 {
-      font-family: 'Fraunces', serif;
-      font-size: 1.5rem;
-      font-weight: 700;
-      margin-bottom: 1rem;
-      color: var(--white);
-    }
-
-    .reservation-info p {
-      color: var(--cream);
-      margin-bottom: 1.5rem;
-      line-height: 1.7;
-      font-size: 1.125rem;
-      font-weight: 500;
-    }
-
-    .reservation-note {
-      font-size: 1rem;
-      font-weight: 500;
-      color: var(--cream);
-      font-style: italic;
-    }
-
-    /* ── Contact ── */
-    .contact {
-      background-image: url('https://images.unsplash.com/photo-1552566626-52f8b828add9?w=1920&q=80');
-    }
-
-    .contact .section-inner {
-      max-width: 1000px;
-      margin: 0 auto;
-    }
-
-    .contact-header {
-      text-align: left;
-      margin-bottom: 2rem;
-    }
-
-    .contact-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 2rem;
-    }
-
-    .contact-block {
-      background-color: var(--panel);
-      padding: 24px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-    }
-
-    .contact-block h3 {
-      font-family: 'Fraunces', serif;
-      font-size: 1.125rem;
-      font-weight: 700;
-      margin-bottom: 0.75rem;
-      color: var(--amber);
-    }
-
-    .contact-block p {
-      color: var(--cream);
-      line-height: 1.7;
-      font-size: 1rem;
-      font-weight: 500;
-    }
-
-    .contact-block a {
-      color: var(--white);
-      text-decoration: none;
-      transition: color 0.2s ease;
-    }
-
-    .contact-block a:hover {
-      color: var(--amber);
-    }
-
-    .hours-list {
-      list-style: none;
-    }
-
-    .hours-list li {
-      display: flex;
-      justify-content: space-between;
-      padding: 0.375rem 0;
-      font-size: 1rem;
-      font-weight: 500;
-      color: var(--cream);
-    }
-
-    .hours-list li span:last-child {
-      color: var(--white);
-      font-weight: 600;
-    }
-
-    /* ── Footer ── */
-    footer {
-      background-color: #0A0705;
-      padding: 3rem 2rem;
-      border-top: 1px solid var(--border);
-      position: relative;
-    }
-
-    footer::before {
-      content: '';
-      position: absolute;
-      top: -100px;
-      left: 0;
-      right: 0;
-      height: 100px;
-      background: linear-gradient(to bottom, transparent, #0A0705);
-      pointer-events: none;
-    }
-
-    .footer-inner {
-      max-width: 1200px;
-      margin: 0 auto;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 1.5rem;
-    }
-
-    .footer-logo {
-      font-family: 'Fraunces', serif;
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: var(--white);
-    }
-
-    .footer-logo span {
-      color: var(--amber);
-    }
-
-    .footer-links {
-      display: flex;
-      gap: 2rem;
-      list-style: none;
-    }
-
-    .footer-links a {
-      color: var(--cream);
-      text-decoration: none;
-      font-size: 0.9375rem;
-      font-weight: 500;
-      transition: color 0.2s ease;
-    }
-
-    .footer-links a:hover {
-      color: var(--amber);
-    }
-
-    .footer-copy {
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: rgba(245, 239, 230, 0.6);
-    }
-
-    /* ── Responsive ── */
-    @media (max-width: 900px) {
-      .reservations .section-inner {
-        grid-template-columns: 1fr;
-        gap: 2rem;
-      }
-
-      .contact-grid {
-        grid-template-columns: 1fr;
-        gap: 1.5rem;
-      }
-
-      .contact-header {
-        text-align: center;
-      }
-
-      .menu-header {
-        text-align: left;
-      }
-
-      .nav-links {
-        display: none;
-      }
-
-      .gallery-item {
-        flex: 0 0 300px;
-        height: 400px;
-      }
-    }
-
-    @media (max-width: 600px) {
-      .section-full {
-        padding: 5rem 1.25rem;
-      }
-
-      .form-row {
-        grid-template-columns: 1fr;
-      }
-
-      .hero-wordmark {
-        font-size: 3rem;
-      }
-
-      .menu-item {
-        flex-direction: column;
-        gap: 0.5rem;
-      }
-
-      .menu-item-info {
-        padding-right: 0;
-      }
-
-      .footer-inner {
-        flex-direction: column;
-        text-align: center;
-      }
-
-      .text-panel {
-        padding: 24px;
-      }
-    }
-
-    /* ── Reduced motion ── */
-    @media (prefers-reduced-motion: reduce) {
-      html {
-        scroll-behavior: auto;
-      }
-
-      *, *::before, *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-      }
-
-      .gallery-item img {
-        transition: none;
-      }
-    }
-  </style>
+  <!-- Shared stylesheet -->
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
   <!-- Navigation -->
   <nav id="navbar">
-    <a href="#" class="nav-logo">Ember <span>&</span> Quill</a>
-    <ul class="nav-links">
-      <li><a href="#about">About</a></li>
-      <li><a href="#menu">Menu</a></li>
-      <li><a href="#gallery">Gallery</a></li>
-      <li><a href="#reservations">Reservations</a></li>
-      <li><a href="#contact">Contact</a></li>
+    <a href="index.html" class="nav-logo" id="navLogo"></a>
+    <button class="hamburger" id="hamburger" aria-label="Toggle menu" aria-expanded="false">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="index.html#about">About</a></li>
+      <li><a href="index.html#menu">Menu</a></li>
+      <li><a href="index.html#gallery">Gallery</a></li>
+      <li><a href="index.html#reservations">Reservations</a></li>
+      <li><a href="index.html#contact">Contact</a></li>
+      <li><a href="index.html#reservations" class="nav-reserve">Reserve</a></li>
     </ul>
-    <a href="#reservations" class="nav-reserve">Reserve</a>
   </nav>
 
   <!-- Hero -->
   <section class="hero" id="home">
     <div class="hero-content">
-      <h1 class="hero-wordmark">Ember <span class="amp">&</span> Quill</h1>
+      <h1 class="hero-wordmark" id="heroWordmark"></h1>
       <div class="hero-rule"></div>
-      <p class="hero-tagline">Where fire meets craft, and every meal tells a story.</p>
+      <p class="hero-tagline" id="heroTagline"></p>
       <a href="#reservations" class="btn btn-primary">Reserve a Table</a>
     </div>
   </section>
 
   <!-- About -->
   <section class="section-full fade-section about" id="about">
-    <div class="section-inner">
+    <div>
       <div class="text-panel">
         <p class="section-label">Our Story</p>
-        <h2 class="section-title">Born from fire, written with care</h2>
+        <h2 class="section-title">Born from fire, crafted with intention</h2>
         <p class="section-text">
-          Ember &amp; Quill is a celebration of the kitchen's flame and the storyteller's craft.
-          Our chefs work over open fire, drawing out flavors that no modern oven can replicate,
-          while every dish is composed like a chapter — deliberate, layered, and meant to be remembered.
+          Ember &amp; Quill is a modern Nigerian restaurant where open-fire cooking meets contemporary technique.
+          Every dish is a conversation between smoke and spice, tradition and innovation.
         </p>
         <p class="section-text">
-          From the charred oak of our grill to the hand-written menus that change with the seasons,
-          every detail is an invitation to slow down and savor.
+          From the charcoal grill to the hand-written menu that changes with the seasons,
+          every detail invites you to slow down and savour.
         </p>
       </div>
     </div>
   </section>
 
-  <!-- Menu -->
+  <!-- Menu Highlights -->
   <section class="section-full fade-section menu" id="menu">
-    <div class="section-inner">
-      <div class="menu-header">
-        <p class="section-label">Menu Highlights</p>
-        <h2 class="section-title">Signature dishes from the fire</h2>
-      </div>
+    <div>
       <div class="text-panel">
-        <ul class="menu-list">
-          <li class="menu-item">
-            <div class="menu-item-info">
-              <div class="menu-item-name">Ember-Grilled Ribeye</div>
-              <div class="menu-item-desc">28-day dry-aged, smoked bone marrow, charred scallion</div>
-            </div>
-            <div class="menu-item-price">$52</div>
-          </li>
-          <li class="menu-item">
-            <div class="menu-item-info">
-              <div class="menu-item-name">Quill &amp; Ink Pasta</div>
-              <div class="menu-item-desc">Squid ink tagliatelle, chili oil, lemon breadcrumbs</div>
-            </div>
-            <div class="menu-item-price">$28</div>
-          </li>
-          <li class="menu-item">
-            <div class="menu-item-info">
-              <div class="menu-item-name">Fire-Roasted Octopus</div>
-              <div class="menu-item-desc">Smoked paprika, confit potato, salsa verde</div>
-            </div>
-            <div class="menu-item-price">$34</div>
-          </li>
-          <li class="menu-item">
-            <div class="menu-item-info">
-              <div class="menu-item-name">Charred Citrus Salad</div>
-              <div class="menu-item-desc">Burnt orange, fennel, pistachio, honey vinaigrette</div>
-            </div>
-            <div class="menu-item-price">$18</div>
-          </li>
-          <li class="menu-item">
-            <div class="menu-item-info">
-              <div class="menu-item-name">Smoked Chocolate Tart</div>
-              <div class="menu-item-desc">Oak-smoked ganache, sea salt, olive oil crumble</div>
-            </div>
-            <div class="menu-item-price">$16</div>
-          </li>
-          <li class="menu-item">
-            <div class="menu-item-info">
-              <div class="menu-item-name">The Quill's Old Fashioned</div>
-              <div class="menu-item-desc">Rye whiskey, smoked maple, bitters, orange oils</div>
-            </div>
-            <div class="menu-item-price">$18</div>
-          </li>
-        </ul>
+        <div style="text-align:right; margin-bottom:1.5rem;">
+          <p class="section-label">Menu Highlights</p>
+          <h2 class="section-title">Signature dishes from the fire</h2>
+        </div>
+        <ul class="menu-list" id="highlightsList"></ul>
       </div>
       <div class="menu-cta">
-        <a href="#reservations" class="btn btn-outline">View Full Menu</a>
+        <a href="menu.html" class="btn btn-outline">View Full Menu</a>
       </div>
     </div>
   </section>
@@ -900,76 +142,77 @@
 
   <!-- Reservations -->
   <section class="section-full fade-section reservations" id="reservations">
-    <div class="section-inner">
-      <div class="text-panel">
-        <p class="section-label">Reservations</p>
-        <h2 class="section-title">Book your table</h2>
-        <form class="reservation-form" onsubmit="handleReservation(event)">
-          <div class="form-row">
-            <div class="form-group">
-              <label for="name">Name</label>
-              <input type="text" id="name" placeholder="Your name" required>
+    <div>
+      <div class="reservation-grid">
+        <div class="text-panel">
+          <p class="section-label">Reservations</p>
+          <h2 class="section-title">Book your table</h2>
+          <form class="reservation-form" onsubmit="handleReservation(event)">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="name">Name</label>
+                <input type="text" id="name" placeholder="Your name" required>
+              </div>
+              <div class="form-group">
+                <label for="phone">Phone</label>
+                <input type="tel" id="phone" placeholder="+234 800 000 0000" required>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="date">Date</label>
+                <input type="date" id="date" required>
+              </div>
+              <div class="form-group">
+                <label for="time">Time</label>
+                <select id="time" required>
+                  <option value="">Select time</option>
+                  <option value="12:00">12:00 PM</option>
+                  <option value="12:30">12:30 PM</option>
+                  <option value="13:00">1:00 PM</option>
+                  <option value="17:00">5:00 PM</option>
+                  <option value="18:00">6:00 PM</option>
+                  <option value="19:00">7:00 PM</option>
+                  <option value="20:00">8:00 PM</option>
+                  <option value="21:00">9:00 PM</option>
+                </select>
+              </div>
             </div>
             <div class="form-group">
-              <label for="phone">Phone</label>
-              <input type="tel" id="phone" placeholder="(555) 123-4567" required>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label for="date">Date</label>
-              <input type="date" id="date" required>
-            </div>
-            <div class="form-group">
-              <label for="time">Time</label>
-              <select id="time" required>
-                <option value="">Select time</option>
-                <option value="17:00">5:00 PM</option>
-                <option value="17:30">5:30 PM</option>
-                <option value="18:00">6:00 PM</option>
-                <option value="18:30">6:30 PM</option>
-                <option value="19:00">7:00 PM</option>
-                <option value="19:30">7:30 PM</option>
-                <option value="20:00">8:00 PM</option>
-                <option value="20:30">8:30 PM</option>
-                <option value="21:00">9:00 PM</option>
+              <label for="guests">Guests</label>
+              <select id="guests" required>
+                <option value="">Number of guests</option>
+                <option value="1">1 guest</option>
+                <option value="2">2 guests</option>
+                <option value="3">3 guests</option>
+                <option value="4">4 guests</option>
+                <option value="5">5 guests</option>
+                <option value="6">6 guests</option>
+                <option value="7">7 guests</option>
+                <option value="8">8+ guests</option>
               </select>
             </div>
+            <div class="form-group">
+              <label for="notes">Special requests</label>
+              <textarea id="notes" rows="3" placeholder="Dietary needs, celebrations, seating preferences..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Request Reservation</button>
+            <p class="reservation-note">We confirm all reservations by phone or email within 24 hours.</p>
+          </form>
+        </div>
+        <div class="text-panel">
+          <div class="reservation-info">
+            <h3>Good to know</h3>
+            <p>
+              We hold reservations for 15 minutes past the booked time. For parties of 8 or more,
+              please call us directly so we can arrange the perfect setup.
+            </p>
+            <h3 style="margin-top:1.5rem;">Private dining</h3>
+            <p>
+              Our back room seats up to 20 guests for private events, tastings, and celebrations.
+              Contact us to design a custom menu around your occasion.
+            </p>
           </div>
-          <div class="form-group">
-            <label for="guests">Guests</label>
-            <select id="guests" required>
-              <option value="">Number of guests</option>
-              <option value="1">1 guest</option>
-              <option value="2">2 guests</option>
-              <option value="3">3 guests</option>
-              <option value="4">4 guests</option>
-              <option value="5">5 guests</option>
-              <option value="6">6 guests</option>
-              <option value="7">7 guests</option>
-              <option value="8">8+ guests</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="notes">Special requests</label>
-            <textarea id="notes" rows="3" placeholder="Dietary needs, celebrations, seating preferences..."></textarea>
-          </div>
-          <button type="submit" class="btn btn-primary">Request Reservation</button>
-          <p class="reservation-note">We confirm all reservations by phone or email within 24 hours.</p>
-        </form>
-      </div>
-      <div class="text-panel">
-        <div class="reservation-info">
-          <h3>Good to know</h3>
-          <p>
-            We hold reservations for 15 minutes past the booked time. For parties of 8 or more,
-            please call us directly so we can arrange the perfect setup.
-          </p>
-          <h3 style="margin-top: 2rem;">Private dining</h3>
-          <p>
-            Our back room seats up to 20 guests for private events, tastings, and celebrations.
-            Contact us to design a custom menu around your occasion.
-          </p>
         </div>
       </div>
     </div>
@@ -977,33 +220,23 @@
 
   <!-- Contact -->
   <section class="section-full fade-section contact" id="contact">
-    <div class="section-inner">
-      <div class="contact-header">
+    <div>
+      <div style="margin-bottom:1.5rem;">
         <p class="section-label">Find Us</p>
         <h2 class="section-title">Visit or get in touch</h2>
       </div>
       <div class="contact-grid">
         <div class="contact-block">
           <h3>Address</h3>
-          <p>
-            42 Ember Lane<br>
-            Portland, OR 97209
-          </p>
+          <p id="contactAddress"></p>
         </div>
         <div class="contact-block">
           <h3>Contact</h3>
-          <p>
-            <a href="tel:+15035550142">(503) 555-0142</a><br>
-            <a href="mailto:hello@emberandquill.com">hello@emberandquill.com</a>
-          </p>
+          <p id="contactPhone"></p>
         </div>
         <div class="contact-block">
           <h3>Opening Hours</h3>
-          <ul class="hours-list">
-            <li><span>Mon — Thu</span><span>5:00 PM – 10:00 PM</span></li>
-            <li><span>Fri — Sat</span><span>5:00 PM – 11:00 PM</span></li>
-            <li><span>Sunday</span><span>4:00 PM – 9:00 PM</span></li>
-          </ul>
+          <ul class="hours-list" id="hoursList"></ul>
         </div>
       </div>
     </div>
@@ -1012,52 +245,105 @@
   <!-- Footer -->
   <footer>
     <div class="footer-inner">
-      <div class="footer-logo">Ember <span>&</span> Quill</div>
+      <div class="footer-logo" id="footerLogo"></div>
       <ul class="footer-links">
-        <li><a href="#about">About</a></li>
-        <li><a href="#menu">Menu</a></li>
-        <li><a href="#gallery">Gallery</a></li>
-        <li><a href="#reservations">Reservations</a></li>
-        <li><a href="#contact">Contact</a></li>
+        <li><a href="index.html#about">About</a></li>
+        <li><a href="menu.html">Menu</a></li>
+        <li><a href="index.html#gallery">Gallery</a></li>
+        <li><a href="index.html#reservations">Reservations</a></li>
+        <li><a href="index.html#contact">Contact</a></li>
       </ul>
-      <p class="footer-copy">&copy; 2026 Ember &amp; Quill. All rights reserved.</p>
+      <p class="footer-copy" id="footerCopy"></p>
     </div>
   </footer>
 
+  <script src="menu.js"></script>
   <script>
-    // Smooth scroll for nav links
+    // ── Render brand ──
+    const nameParts = siteConfig.name.split(' & ');
+    const nameHTML = nameParts.length > 1
+      ? `${nameParts[0]} <span>&</span> ${nameParts[1]}`
+      : siteConfig.name.replace(/&/, '<span>&</span>');
+    document.getElementById('navLogo').innerHTML = nameHTML;
+    document.getElementById('footerLogo').innerHTML = nameHTML;
+    document.getElementById('heroWordmark').innerHTML = nameHTML;
+    document.getElementById('heroTagline').textContent = siteConfig.tagline;
+    document.getElementById('footerCopy').innerHTML = `&copy; ${new Date().getFullYear()} ${siteConfig.name}. All rights reserved.`;
+
+    // ── Format price ──
+    function fmtPrice(n) {
+      return siteConfig.currency + n.toLocaleString('en-NG');
+    }
+
+    // ── Render highlights ──
+    const highlightsList = document.getElementById('highlightsList');
+    highlightsList.innerHTML = siteConfig.highlights.map(d => `
+      <li class="menu-item">
+        <div class="menu-item-info">
+          <div class="menu-item-name">${d.name}</div>
+          <div class="menu-item-desc">${d.desc}</div>
+        </div>
+        <div class="menu-item-price">${fmtPrice(d.price)}</div>
+      </li>
+    `).join('');
+
+    // ── Render contact ──
+    document.getElementById('contactAddress').innerHTML = siteConfig.address.replace(', ', '<br>');
+    document.getElementById('contactPhone').innerHTML =
+      `<a href="tel:${siteConfig.phone.replace(/\s/g, '')}">${siteConfig.phone}</a><br><a href="mailto:${siteConfig.email}">${siteConfig.email}</a>`;
+
+    // ── Render hours ──
+    document.getElementById('hoursList').innerHTML = siteConfig.hours.map(h => `
+      <li><span>${h.days}</span><span>${h.time}</span></li>
+    `).join('');
+
+    // ── Smooth scroll ──
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
       anchor.addEventListener('click', function (e) {
         e.preventDefault();
         const target = document.querySelector(this.getAttribute('href'));
         if (target) {
-          const navHeight = 80;
+          const navHeight = 64;
           const targetPosition = target.getBoundingClientRect().top + window.scrollY - navHeight;
-          window.scrollTo({
-            top: targetPosition,
-            behavior: 'smooth'
-          });
+          window.scrollTo({ top: targetPosition, behavior: 'smooth' });
         }
       });
     });
 
-    // Reservation form handler
+    // ── Hamburger menu ──
+    const hamburger = document.getElementById('hamburger');
+    const navLinks = document.getElementById('navLinks');
+
+    hamburger.addEventListener('click', () => {
+      navLinks.classList.toggle('active');
+      hamburger.classList.toggle('active');
+      const expanded = hamburger.getAttribute('aria-expanded') === 'true';
+      hamburger.setAttribute('aria-expanded', String(!expanded));
+    });
+
+    // Close menu when a link is tapped
+    navLinks.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => {
+        navLinks.classList.remove('active');
+        hamburger.classList.remove('active');
+        hamburger.setAttribute('aria-expanded', 'false');
+      });
+    });
+
+    // ── Reservation form ──
     function handleReservation(e) {
       e.preventDefault();
       const name = document.getElementById('name').value;
       const date = document.getElementById('date').value;
       const time = document.getElementById('time').value;
       const guests = document.getElementById('guests').value;
-
       alert(`Thank you, ${name}! Your reservation request for ${guests} guest(s) on ${date} at ${time} has been received. We will confirm within 24 hours.`);
-
       e.target.reset();
     }
 
-    // Set minimum date to today
+    // ── Min date = today ──
     const dateInput = document.getElementById('date');
-    const today = new Date().toISOString().split('T')[0];
-    dateInput.setAttribute('min', today);
+    dateInput.setAttribute('min', new Date().toISOString().split('T')[0]);
   </script>
 
 </body>
