@@ -49,7 +49,7 @@
   </nav>
 
   <!-- Menu Hero -->
-  <section class="section-full" style="background-image:url('https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1920&q=80'); min-height:40vh;">
+  <section class="section-full menu-section" style="min-height:40vh; background-image:url('https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1920&q=80');">
     <div>
       <div class="text-panel" style="text-align:center;">
         <p class="section-label">Full Menu</p>
@@ -64,6 +64,21 @@
     <div id="menuContent"></div>
   </section>
 
+  <!-- Call to Reserve -->
+  <section class="section-full" style="background: var(--bg);">
+    <div>
+      <div class="text-panel" style="text-align:center;">
+        <p class="section-label">Reserve a Table</p>
+        <h2 class="section-title">Call or message us</h2>
+        <p class="call-text" style="margin-bottom:1.5rem;">Need a table right away? Call us and we'll confirm immediately.</p>
+        <div class="call-section" style="max-width:400px; margin:0 auto;">
+          <a href="#" class="btn-call" id="callToReserveMenu"></a>
+          <a href="#" class="btn-whatsapp" id="whatsAppBtnMenu"></a>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- Footer -->
   <footer>
     <div class="footer-inner">
@@ -75,6 +90,12 @@
         <li><a href="index.html#reservations">Reservations</a></li>
         <li><a href="index.html#contact">Contact</a></li>
       </ul>
+      <div style="width:100%; margin-top:0.5rem;">
+        <div class="call-section" style="max-width:360px; margin:0 auto;">
+          <a href="#" class="btn-call" id="callToReserveFooter"></a>
+          <a href="#" class="btn-whatsapp" id="whatsAppBtnFooter"></a>
+        </div>
+      </div>
       <p class="footer-copy" id="footerCopy"></p>
     </div>
   </footer>
@@ -113,6 +134,24 @@
         </ul>
       </div>
     `).join('');
+
+    // ── Render call & WhatsApp buttons ──
+    const phoneDigits = siteConfig.phone.replace(/[^\d]/g, '');
+    const phoneIntl = '+' + phoneDigits;
+    const phoneDisplay = siteConfig.phone;
+    const waNumber = phoneDigits.startsWith('0') ? '234' + phoneDigits.slice(1) : phoneDigits;
+
+    const callHTML = `Call ${phoneDisplay}`;
+    const waHTML = `WhatsApp ${phoneDisplay}`;
+
+    document.getElementById('callToReserveMenu').href = `tel:${phoneIntl}`;
+    document.getElementById('callToReserveMenu').textContent = callHTML;
+    document.getElementById('whatsAppBtnMenu').href = `https://wa.me/${waNumber}`;
+    document.getElementById('whatsAppBtnMenu').textContent = waHTML;
+    document.getElementById('callToReserveFooter').href = `tel:${phoneIntl}`;
+    document.getElementById('callToReserveFooter').textContent = callHTML;
+    document.getElementById('whatsAppBtnFooter').href = `https://wa.me/${waNumber}`;
+    document.getElementById('whatsAppBtnFooter').textContent = waHTML;
 
     // ── Hamburger menu ──
     const hamburger = document.getElementById('hamburger');
