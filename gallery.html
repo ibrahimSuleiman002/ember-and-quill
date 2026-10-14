@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gallery — Ember &amp; Quill</title>
+  <meta property="og:title" content="Gallery — Ember & Quill">
+  <meta property="og:description" content="A glimpse of the Ember & Quill experience.">
+  <meta property="og:image" value="https://ember-and-quill.vercel.app/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://ember-and-quill.vercel.app/gallery.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Gallery — Ember & Quill">
+  <meta name="twitter:description" content="A glimpse of the Ember & Quill experience.">
+  <meta name="twitter:image" content="https://ember-and-quill.vercel.app/og-image.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Instrument+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="gallery">
+
+  <div id="nav-mount"></div>
+
+  <main class="page-content">
+    <section>
+      <div class="text-panel" style="text-align:center;">
+        <p class="section-label">Gallery</p>
+        <h1 class="section-title">The Ember &amp; Quill Experience</h1>
+        <p class="section-text">A look at our kitchen, dining room, and signature dishes.</p>
+      </div>
+    </section>
+
+    <!-- GALLERY IMAGES: Replace the image URLs below with the client's own restaurant photos before launch -->
+    <section>
+      <div class="gallery-grid">
+        <div class="gallery-tile">
+          <img src="https://images.unsplash.com/photo-1544025162-d76694265947?w=800&q=80" alt="Open flame grilling" loading="lazy">
+          <div class="tile-caption"><h4>Open Flame</h4><p>Where every dish begins</p></div>
+        </div>
+        <div class="gallery-tile">
+          <img src="https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800&q=80" alt="Plated signature dish" loading="lazy">
+          <div class="tile-caption"><h4>Plated with Intent</h4><p>Every plate tells a story</p></div>
+        </div>
+        <div class="gallery-tile">
+          <img src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80" alt="Candlelit dining room" loading="lazy">
+          <div class="tile-caption"><h4>The Dining Room</h4><p>Warm light, warm welcome</p></div>
+        </div>
+        <div class="gallery-tile">
+          <img src="https://images.unsplash.com/photo-1551024506-0bccd828d307?w=800&q=80" alt="Craft cocktail preparation" loading="lazy">
+          <div class="tile-caption"><h4>Craft Cocktails</h4><p>Smoked, stirred, and poured</p></div>
+        </div>
+        <div class="gallery-tile">
+          <img src="https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=800&q=80" alt="Fresh seasonal ingredients" loading="lazy">
+          <div class="tile-caption"><h4>Seasonal Ingredients</h4><p>Sourced with care</p></div>
+        </div>
+        <div class="gallery-tile">
+          <img src="https://images.unsplash.com/photo-1551024506-0bccd828d307?w=800&q=80" alt="Dessert presentation" loading="lazy">
+          <div class="tile-caption"><h4>Sweet Endings</h4><p>The final chapter</p></div>
+        </div>
+        <!-- Background-crop tiles using the hero image with different crops -->
+        <div class="gallery-tile bg-crop">
+          <div class="tile-caption"><h4>Fire &amp; Smoke</h4><p>The heart of our kitchen</p></div>
+        </div>
+        <div class="gallery-tile bg-crop" style="background-position: 30% 60%;">
+          <div class="tile-caption"><h4>Spices &amp; Smoke</h4><p>Our signature blends</p></div>
+        </div>
+        <div class="gallery-tile bg-crop" style="background-position: 70% 30%;">
+          <div class="tile-caption"><h4>Flame-Kissed</h4><p>Charred to perfection</p></div>
+        </div>
+        <div class="gallery-tile bg-crop" style="background-position: 50% 80%;">
+          <div class="tile-caption"><h4>The Ember Glow</h4><p>Where flavour is born</p></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="footer-mount"></div>
+
+  <script src="menu.js"></script>
+  <script src="site.js"></script>
+</body>
+</html>

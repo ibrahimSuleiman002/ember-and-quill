@@ -4,172 +4,64 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Menu — Ember &amp; Quill</title>
-
-  <!-- Open Graph -->
   <meta property="og:title" content="Menu — Ember & Quill">
   <meta property="og:description" content="Full menu — Starters, From the Fire, Mains, Desserts, Drinks.">
-  <meta property="og:image" content="https://ember-and-quill.vercel.app/og-image.jpg">
+  <meta property="og:image" value="https://ember-and-quill.vercel.app/og-image.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://ember-and-quill.vercel.app/menu.html">
-
-  <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Menu — Ember & Quill">
   <meta name="twitter:description" content="Full menu — Starters, From the Fire, Mains, Desserts, Drinks.">
   <meta name="twitter:image" content="https://ember-and-quill.vercel.app/og-image.jpg">
-
-  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Instrument+Sans:wght@500;600;700&display=swap" rel="stylesheet">
-
-  <!-- Shared stylesheet -->
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body data-page="menu">
 
-  <!-- Navigation -->
-  <nav id="navbar">
-    <a href="index.html" class="nav-logo" id="navLogo"></a>
-    <button class="hamburger" id="hamburger" aria-label="Toggle menu" aria-expanded="false">
-      <span></span>
-      <span></span>
-      <span></span>
-    </button>
-    <ul class="nav-links" id="navLinks">
-      <li><a href="index.html#about">About</a></li>
-      <li><a href="menu.html">Menu</a></li>
-      <li><a href="index.html#gallery">Gallery</a></li>
-      <li><a href="index.html#reservations">Reservations</a></li>
-      <li><a href="index.html#contact">Contact</a></li>
-      <li><a href="index.html#reservations" class="nav-reserve">Reserve</a></li>
-    </ul>
-  </nav>
+  <div id="nav-mount"></div>
 
-  <!-- Menu Hero -->
-  <section class="section-full menu-section" style="min-height:40vh; background-image:url('https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1920&q=80');">
-    <div>
+  <main class="page-content">
+    <section>
       <div class="text-panel" style="text-align:center;">
         <p class="section-label">Full Menu</p>
-        <h1 class="section-title" id="menuTitle"></h1>
+        <h1 class="section-title">Ember &amp; Quill — Menu</h1>
         <p class="section-text">Prices in Nigerian Naira (₦). All dishes prepared to order.</p>
+        <div style="margin-top:1.5rem;">
+          <a href="https://wa.me/2347063134521?text=Hello%2C%20I%27d%20like%20to%20place%20an%20order." target="_blank" rel="noopener" class="btn btn-primary">Order Online via WhatsApp</a>
+        </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- Menu Categories -->
-  <section class="section-full" style="background: var(--bg); padding: 3rem 1.25rem;">
     <div id="menuContent"></div>
-  </section>
+  </main>
 
-  <!-- Call to Reserve -->
-  <section class="section-full" style="background: var(--bg);">
-    <div>
-      <div class="text-panel" style="text-align:center;">
-        <p class="section-label">Reserve a Table</p>
-        <h2 class="section-title">Call or message us</h2>
-        <p class="call-text" style="margin-bottom:1.5rem;">Need a table right away? Call us and we'll confirm immediately.</p>
-        <div class="call-section" style="max-width:400px; margin:0 auto;">
-          <a href="#" class="btn-call" id="callToReserveMenu"></a>
-          <a href="#" class="btn-whatsapp" id="whatsAppBtnMenu"></a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Footer -->
-  <footer>
-    <div class="footer-inner">
-      <div class="footer-logo" id="footerLogo"></div>
-      <ul class="footer-links">
-        <li><a href="index.html#about">About</a></li>
-        <li><a href="menu.html">Menu</a></li>
-        <li><a href="index.html#gallery">Gallery</a></li>
-        <li><a href="index.html#reservations">Reservations</a></li>
-        <li><a href="index.html#contact">Contact</a></li>
-      </ul>
-      <div style="width:100%; margin-top:0.5rem;">
-        <div class="call-section" style="max-width:360px; margin:0 auto;">
-          <a href="#" class="btn-call" id="callToReserveFooter"></a>
-          <a href="#" class="btn-whatsapp" id="whatsAppBtnFooter"></a>
-        </div>
-      </div>
-      <p class="footer-copy" id="footerCopy"></p>
-    </div>
-  </footer>
+  <div id="footer-mount"></div>
 
   <script src="menu.js"></script>
+  <script src="site.js"></script>
   <script>
-    // ── Brand ──
-    const nameParts = siteConfig.name.split(' & ');
-    const nameHTML = nameParts.length > 1
-      ? `${nameParts[0]} <span>&</span> ${nameParts[1]}`
-      : siteConfig.name.replace(/&/, '<span>&</span>');
-    document.getElementById('navLogo').innerHTML = nameHTML;
-    document.getElementById('footerLogo').innerHTML = nameHTML;
-    document.getElementById('menuTitle').textContent = `${siteConfig.name} — Menu`;
-    document.getElementById('footerCopy').innerHTML = `&copy; ${new Date().getFullYear()} ${siteConfig.name}. All rights reserved.`;
-
-    // ── Format price ──
-    function fmtPrice(n) {
-      return siteConfig.currency + n.toLocaleString('en-NG');
-    }
-
-    // ── Render menu ──
     document.getElementById('menuContent').innerHTML = siteConfig.menu.map(cat => `
-      <div class="menu-category">
-        <h2 class="menu-category-title">${cat.category}</h2>
-        <ul class="menu-list">
-          ${cat.items.map(item => `
-            <li class="menu-item">
-              <div class="menu-item-info">
-                <div class="menu-item-name">${item.name}</div>
-                <div class="menu-item-desc">${item.desc}</div>
-              </div>
-              <div class="menu-item-price">${fmtPrice(item.price)}</div>
-            </li>
-          `).join('')}
-        </ul>
-      </div>
+      <section>
+        <div class="text-panel">
+          <h2 class="menu-category-title">${cat.category}</h2>
+          <ul class="menu-list">
+            ${cat.items.map(item => `
+              <li class="menu-item">
+                <div class="menu-item-info">
+                  <div class="menu-item-name">${item.name}</div>
+                  <div class="menu-item-desc">${item.desc}</div>
+                </div>
+                <div class="menu-item-price">${fmtPrice(item.price)}</div>
+              </li>
+            `).join('')}
+          </ul>
+        </div>
+      </section>
     `).join('');
-
-    // ── Render call & WhatsApp buttons ──
-    const phoneDigits = siteConfig.phone.replace(/[^\d]/g, '');
-    const phoneIntl = '+' + phoneDigits;
-    const phoneDisplay = siteConfig.phone;
-    const waNumber = phoneDigits.startsWith('0') ? '234' + phoneDigits.slice(1) : phoneDigits;
-
-    const callHTML = `Call ${phoneDisplay}`;
-    const waHTML = `WhatsApp ${phoneDisplay}`;
-
-    document.getElementById('callToReserveMenu').href = `tel:${phoneIntl}`;
-    document.getElementById('callToReserveMenu').textContent = callHTML;
-    document.getElementById('whatsAppBtnMenu').href = `https://wa.me/${waNumber}`;
-    document.getElementById('whatsAppBtnMenu').textContent = waHTML;
-    document.getElementById('callToReserveFooter').href = `tel:${phoneIntl}`;
-    document.getElementById('callToReserveFooter').textContent = callHTML;
-    document.getElementById('whatsAppBtnFooter').href = `https://wa.me/${waNumber}`;
-    document.getElementById('whatsAppBtnFooter').textContent = waHTML;
-
-    // ── Hamburger menu ──
-    const hamburger = document.getElementById('hamburger');
-    const navLinks = document.getElementById('navLinks');
-    hamburger.addEventListener('click', () => {
-      navLinks.classList.toggle('active');
-      hamburger.classList.toggle('active');
-      const expanded = hamburger.getAttribute('aria-expanded') === 'true';
-      hamburger.setAttribute('aria-expanded', String(!expanded));
-    });
-    navLinks.querySelectorAll('a').forEach(link => {
-      link.addEventListener('click', () => {
-        navLinks.classList.remove('active');
-        hamburger.classList.remove('active');
-        hamburger.setAttribute('aria-expanded', 'false');
-      });
-    });
   </script>
-
 </body>
 </html>

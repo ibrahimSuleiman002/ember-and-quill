@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact — Ember &amp; Quill</title>
+  <meta property="og:title" content="Contact — Ember & Quill">
+  <meta property="og:description" content="Find Ember & Quill in Abuja. Call, WhatsApp, or visit us.">
+  <meta property="og:image" content="https://ember-and-quill.vercel.app/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://ember-and-quill.vercel.app/contact.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Contact — Ember & Quill">
+  <meta name="twitter:description" content="Find Ember & Quill in Abuja. Call, WhatsApp, or visit us.">
+  <meta name="twitter:image" value="https://ember-and-quill.vercel.app/og-image.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Instrument+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="contact">
+
+  <div id="nav-mount"></div>
+
+  <main class="page-content">
+    <section>
+      <div class="text-panel" style="text-align:center;">
+        <p class="section-label">Find Us</p>
+        <h1 class="section-title">Contact &amp; Location</h1>
+      </div>
+    </section>
+
+    <section>
+      <div class="contact-grid">
+        <div class="contact-block">
+          <h3>Address</h3>
+          <p id="contactAddress"></p>
+        </div>
+        <div class="contact-block">
+          <h3>Phone</h3>
+          <p id="contactPhone"></p>
+        </div>
+        <div class="contact-block">
+          <h3>Opening Hours</h3>
+          <ul class="hours-list" id="hoursList"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="contact-grid">
+        <div class="contact-block">
+          <h3>Call or WhatsApp</h3>
+          <div class="call-section">
+            <a href="#" class="btn-call" id="callBtn2"></a>
+            <a href="#" class="btn-whatsapp" id="waBtn2"></a>
+          </div>
+        </div>
+        <div class="contact-block">
+          <h3>Email</h3>
+          <p><a href="mailto:hello@emberandquill.ng">hello@emberandquill.ng</a></p>
+        </div>
+        <div class="contact-block">
+          <h3>Order Online</h3>
+          <p>Skip the queue — message us on WhatsApp and your order will be ready when you arrive.</p>
+          <div style="margin-top:1rem;">
+            <a href="https://wa.me/2347063134521?text=Hello%2C%20I%27d%20like%20to%20place%20an%20order." target="_blank" rel="noopener" class="btn btn-outline" style="width:100%; display:flex; align-items:center; justify-content:center; min-height:48px; text-decoration:none; font-weight:700; border-radius:4px; padding:0.875rem 1.5rem; font-size:1rem;">Order on WhatsApp</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- GOOGLE MAP: Replace the q parameter below with the exact address when confirmed -->
+    <section>
+      <div class="map-container">
+        <iframe
+          src="https://www.google.com/maps?q=Abuja,+Nigeria&output=embed"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"
+          title="Ember & Quill location map"
+          allowfullscreen></iframe>
+      </div>
+    </section>
+  </main>
+
+  <div id="footer-mount"></div>
+
+  <script src="menu.js"></script>
+  <script src="site.js"></script>
+  <script>
+    document.getElementById('contactAddress').innerHTML = siteConfig.address.replace(/, /g, '<br>');
+    document.getElementById('contactPhone').innerHTML =
+      `<a href="tel:${siteConfig.phoneIntl}">${siteConfig.phone}</a>`;
+    document.getElementById('hoursList').innerHTML = siteConfig.hours.map(h => `
+      <li><span>${h.days}</span><span>${h.time}</span></li>
+    `).join('');
+  </script>
+</body>
+</html>

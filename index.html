@@ -4,8 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ember &amp; Quill – Modern Restaurant</title>
-
-  <!-- Open Graph -->
   <meta property="og:title" content="Ember & Quill – Modern Restaurant">
   <meta property="og:description" content="Modern Nigerian dining, crafted over fire.">
   <meta property="og:image" content="https://ember-and-quill.vercel.app/og-image.jpg">
@@ -13,40 +11,18 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://ember-and-quill.vercel.app/">
-
-  <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Ember & Quill – Modern Restaurant">
   <meta name="twitter:description" content="Modern Nigerian dining, crafted over fire.">
   <meta name="twitter:image" content="https://ember-and-quill.vercel.app/og-image.jpg">
-
-  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Instrument+Sans:wght@500;600;700&display=swap" rel="stylesheet">
-
-  <!-- Shared stylesheet -->
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body data-page="home">
 
-  <!-- Navigation -->
-  <nav id="navbar">
-    <a href="index.html" class="nav-logo" id="navLogo"></a>
-    <button class="hamburger" id="hamburger" aria-label="Toggle menu" aria-expanded="false">
-      <span></span>
-      <span></span>
-      <span></span>
-    </button>
-    <ul class="nav-links" id="navLinks">
-      <li><a href="index.html#about">About</a></li>
-      <li><a href="index.html#menu">Menu</a></li>
-      <li><a href="index.html#gallery">Gallery</a></li>
-      <li><a href="index.html#reservations">Reservations</a></li>
-      <li><a href="index.html#contact">Contact</a></li>
-      <li><a href="index.html#reservations" class="nav-reserve">Reserve</a></li>
-    </ul>
-  </nav>
+  <div id="nav-mount"></div>
 
   <!-- Hero -->
   <section class="hero" id="home">
@@ -54,13 +30,17 @@
       <h1 class="hero-wordmark" id="heroWordmark"></h1>
       <div class="hero-rule"></div>
       <p class="hero-tagline" id="heroTagline"></p>
-      <a href="#reservations" class="btn btn-primary">Reserve a Table</a>
+      <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
+        <a href="reservations.html" class="btn btn-primary">Reserve a Table</a>
+        <a href="https://wa.me/2347063134521?text=Hello%2C%20I%27d%20like%20to%20place%20an%20order." target="_blank" rel="noopener" class="btn btn-outline">Order Online</a>
+      </div>
     </div>
   </section>
 
-  <!-- About -->
-  <section class="section-full fade-section about" id="about" style="background-image:url('https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1920&q=80');">
-    <div>
+  <main class="page-content">
+
+    <!-- About preview -->
+    <section id="about">
       <div class="text-panel">
         <p class="section-label">Our Story</p>
         <h2 class="section-title">Born from fire, crafted with intention</h2>
@@ -72,13 +52,14 @@
           From the charcoal grill to the hand-written menu that changes with the seasons,
           every detail invites you to slow down and savour.
         </p>
+        <div style="margin-top:1.5rem;">
+          <a href="about.html" class="btn btn-outline">Learn More</a>
+        </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- Menu Highlights -->
-  <section class="section-full fade-section menu-section" id="menu" style="background-image:url('https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1920&q=80');">
-    <div>
+    <!-- Menu Highlights -->
+    <section id="menu">
       <div class="text-panel">
         <div style="text-align:right; margin-bottom:1.5rem;">
           <p class="section-label">Menu Highlights</p>
@@ -89,207 +70,57 @@
       <div class="menu-cta">
         <a href="menu.html" class="btn btn-outline">View Full Menu</a>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- Gallery -->
-  <section class="gallery" id="gallery">
-    <div class="gallery-strip">
-      <div class="gallery-item">
-        <img src="https://images.unsplash.com/photo-1544025162-d76694265947?w=800&q=80" alt="Open flame grilling" loading="lazy">
-        <div class="gallery-caption">
-          <h4>Open Flame</h4>
-          <p>Where every dish begins</p>
-        </div>
-      </div>
-      <div class="gallery-item">
-        <img src="https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800&q=80" alt="Plated signature dish" loading="lazy">
-        <div class="gallery-caption">
-          <h4>Plated with Intent</h4>
-          <p>Every plate tells a story</p>
-        </div>
-      </div>
-      <div class="gallery-item">
-        <img src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80" alt="Candlelit dining room" loading="lazy">
-        <div class="gallery-caption">
-          <h4>The Dining Room</h4>
-          <p>Warm light, warm welcome</p>
-        </div>
-      </div>
-      <div class="gallery-item">
-        <img src="https://images.unsplash.com/photo-1551024506-0bccd828d307?w=800&q=80" alt="Craft cocktail preparation" loading="lazy">
-        <div class="gallery-caption">
-          <h4>Craft Cocktails</h4>
-          <p>Smoked, stirred, and poured</p>
-        </div>
-      </div>
-      <div class="gallery-item">
-        <img src="https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=800&q=80" alt="Fresh seasonal ingredients" loading="lazy">
-        <div class="gallery-caption">
-          <h4>Seasonal Ingredients</h4>
-          <p>Sourced with care</p>
-        </div>
-      </div>
-      <div class="gallery-item">
-        <img src="https://images.unsplash.com/photo-1551024506-0bccd828d307?w=800&q=80" alt="Dessert presentation" loading="lazy">
-        <div class="gallery-caption">
-          <h4>Sweet Endings</h4>
-          <p>The final chapter</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Reservations -->
-  <section class="section-full fade-section reservations" id="reservations" style="background-image:url('https://images.unsplash.com/photo-1559339352-11d035aa65de?w=1920&q=80');">
-    <div>
-      <div class="reservation-grid">
-        <div class="text-panel">
-          <p class="section-label">Reservations</p>
-          <h2 class="section-title">Book your table</h2>
-          <form class="reservation-form" onsubmit="handleReservation(event)">
-            <div class="form-row">
-              <div class="form-group">
-                <label for="name">Name</label>
-                <input type="text" id="name" placeholder="Your name" required>
-              </div>
-              <div class="form-group">
-                <label for="phone">Phone</label>
-                <input type="tel" id="phone" placeholder="+234 800 000 0000" required>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="date">Date</label>
-                <input type="date" id="date" required>
-              </div>
-              <div class="form-group">
-                <label for="time">Time</label>
-                <select id="time" required>
-                  <option value="">Select time</option>
-                  <option value="12:00">12:00 PM</option>
-                  <option value="12:30">12:30 PM</option>
-                  <option value="13:00">1:00 PM</option>
-                  <option value="17:00">5:00 PM</option>
-                  <option value="18:00">6:00 PM</option>
-                  <option value="19:00">7:00 PM</option>
-                  <option value="20:00">8:00 PM</option>
-                  <option value="21:00">9:00 PM</option>
-                </select>
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="guests">Guests</label>
-              <select id="guests" required>
-                <option value="">Number of guests</option>
-                <option value="1">1 guest</option>
-                <option value="2">2 guests</option>
-                <option value="3">3 guests</option>
-                <option value="4">4 guests</option>
-                <option value="5">5 guests</option>
-                <option value="6">6 guests</option>
-                <option value="7">7 guests</option>
-                <option value="8">8+ guests</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="notes">Special requests</label>
-              <textarea id="notes" rows="3" placeholder="Dietary needs, celebrations, seating preferences..."></textarea>
-            </div>
-            <button type="submit" class="btn btn-primary">Request Reservation</button>
-            <p class="reservation-note">We confirm all reservations by phone or email within 24 hours.</p>
-          </form>
-          <div class="call-section">
-            <p class="call-text">Need a table right away? Call us and we'll confirm immediately.</p>
-            <a href="#" class="btn-call" id="callToReserve"></a>
-            <a href="#" class="btn-whatsapp" id="whatsAppBtn"></a>
+    <!-- How to Order -->
+    <section id="order">
+      <div class="text-panel">
+        <p class="section-label">How to Order</p>
+        <h2 class="section-title">Order online in three easy steps</h2>
+        <div class="order-steps">
+          <div class="order-step">
+            <div class="order-step-num">1</div>
+            <h3>Browse the Menu</h3>
+            <p>Check out our full menu and pick what you're craving.</p>
+          </div>
+          <div class="order-step">
+            <div class="order-step-num">2</div>
+            <h3>Message Us</h3>
+            <p>Send us your order on WhatsApp — it takes less than a minute.</p>
+          </div>
+          <div class="order-step">
+            <div class="order-step-num">3</div>
+            <h3>Pick Up or Delivery</h3>
+            <p>Collect your order or have it delivered to your doorstep.</p>
           </div>
         </div>
-        <div class="text-panel">
-          <div class="reservation-info">
-            <h3>Good to know</h3>
-            <p>
-              We hold reservations for 15 minutes past the booked time. For parties of 8 or more,
-              please call us directly so we can arrange the perfect setup.
-            </p>
-            <h3 style="margin-top:1.5rem;">Private dining</h3>
-            <p>
-              Our back room seats up to 20 guests for private events, tastings, and celebrations.
-              Contact us to design a custom menu around your occasion.
-            </p>
-          </div>
+        <div style="text-align:center; margin-top:2rem;">
+          <a href="https://wa.me/2347063134521?text=Hello%2C%20I%27d%20like%20to%20place%20an%20order." target="_blank" rel="noopener" class="btn btn-primary">Start Your Order</a>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- Contact -->
-  <section class="section-full fade-section contact" id="contact" style="background-image:url('https://images.unsplash.com/photo-1552566626-52f8b828add9?w=1920&q=80');">
-    <div>
-      <div class="text-panel" style="margin-bottom:1.5rem;">
-        <p class="section-label">Find Us</p>
-        <h2 class="section-title">Visit or get in touch</h2>
+    <!-- Reviews -->
+    <!-- SAMPLE REVIEWS: replace with real guest reviews before launch -->
+    <section id="reviews">
+      <div class="text-panel">
+        <p class="section-label">What Our Guests Say</p>
+        <h2 class="section-title">Reviews</h2>
+        <div class="reviews-grid" id="reviewsGrid"></div>
       </div>
-      <div class="contact-grid">
-        <div class="contact-block">
-          <h3>Address</h3>
-          <p id="contactAddress"></p>
-        </div>
-        <div class="contact-block">
-          <h3>Contact</h3>
-          <p id="contactPhone"></p>
-        </div>
-        <div class="contact-block">
-          <h3>Reserve Now</h3>
-          <div class="call-section">
-            <a href="#" class="btn-call" id="callToReserve2"></a>
-            <a href="#" class="btn-whatsapp" id="whatsAppBtn2"></a>
-          </div>
-        </div>
-        <div class="contact-block">
-          <h3>Opening Hours</h3>
-          <ul class="hours-list" id="hoursList"></ul>
-        </div>
-      </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- Footer -->
-  <footer>
-    <div class="footer-inner">
-      <div class="footer-logo" id="footerLogo"></div>
-      <ul class="footer-links">
-        <li><a href="index.html#about">About</a></li>
-        <li><a href="menu.html">Menu</a></li>
-        <li><a href="index.html#gallery">Gallery</a></li>
-        <li><a href="index.html#reservations">Reservations</a></li>
-        <li><a href="index.html#contact">Contact</a></li>
-      </ul>
-      <p class="footer-copy" id="footerCopy"></p>
-    </div>
-  </footer>
+  </main>
+
+  <div id="footer-mount"></div>
 
   <script src="menu.js"></script>
+  <script src="site.js"></script>
   <script>
-    // ── Render brand ──
-    const nameParts = siteConfig.name.split(' & ');
-    const nameHTML = nameParts.length > 1
-      ? `${nameParts[0]} <span>&</span> ${nameParts[1]}`
-      : siteConfig.name.replace(/&/, '<span>&</span>');
-    document.getElementById('navLogo').innerHTML = nameHTML;
-    document.getElementById('footerLogo').innerHTML = nameHTML;
-    document.getElementById('heroWordmark').innerHTML = nameHTML;
+    document.getElementById('heroWordmark').innerHTML = renderBrand();
     document.getElementById('heroTagline').textContent = siteConfig.tagline;
-    document.getElementById('footerCopy').innerHTML = `&copy; ${new Date().getFullYear()} ${siteConfig.name}. All rights reserved.`;
 
-    // ── Format price ──
-    function fmtPrice(n) {
-      return siteConfig.currency + n.toLocaleString('en-NG');
-    }
-
-    // ── Render highlights ──
-    const highlightsList = document.getElementById('highlightsList');
-    highlightsList.innerHTML = siteConfig.highlights.map(d => `
+    document.getElementById('highlightsList').innerHTML = siteConfig.highlights.map(d => `
       <li class="menu-item">
         <div class="menu-item-info">
           <div class="menu-item-name">${d.name}</div>
@@ -299,82 +130,13 @@
       </li>
     `).join('');
 
-    // ── Render contact ──
-    document.getElementById('contactAddress').innerHTML = siteConfig.address.replace(', ', '<br>');
-    document.getElementById('contactPhone').innerHTML =
-      `<a href="tel:${siteConfig.phone.replace(/\s/g, '')}">${siteConfig.phone}</a><br><a href="mailto:${siteConfig.email}">${siteConfig.email}</a>`;
-
-    // ── Render hours ──
-    document.getElementById('hoursList').innerHTML = siteConfig.hours.map(h => `
-      <li><span>${h.days}</span><span>${h.time}</span></li>
+    document.getElementById('reviewsGrid').innerHTML = siteConfig.reviews.map(r => `
+      <div class="review-card">
+        <div class="review-stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</div>
+        <p class="review-text">"${r.text}"</p>
+        <p class="review-name">— ${r.name}</p>
+      </div>
     `).join('');
-
-    // ── Render call & WhatsApp buttons ──
-    const phoneDigits = siteConfig.phone.replace(/[^\d]/g, '');
-    const phoneIntl = '+' + phoneDigits;
-    const phoneDisplay = siteConfig.phone;
-    const waNumber = phoneDigits.startsWith('0') ? '234' + phoneDigits.slice(1) : phoneDigits;
-
-    const callHTML = `Call ${phoneDisplay}`;
-    const waHTML = `WhatsApp ${phoneDisplay}`;
-
-    document.getElementById('callToReserve').href = `tel:${phoneIntl}`;
-    document.getElementById('callToReserve').textContent = callHTML;
-    document.getElementById('whatsAppBtn').href = `https://wa.me/${waNumber}`;
-    document.getElementById('whatsAppBtn').textContent = waHTML;
-    document.getElementById('callToReserve2').href = `tel:${phoneIntl}`;
-    document.getElementById('callToReserve2').textContent = callHTML;
-    document.getElementById('whatsAppBtn2').href = `https://wa.me/${waNumber}`;
-    document.getElementById('whatsAppBtn2').textContent = waHTML;
-
-    // ── Smooth scroll ──
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-      anchor.addEventListener('click', function (e) {
-        e.preventDefault();
-        const target = document.querySelector(this.getAttribute('href'));
-        if (target) {
-          const navHeight = 64;
-          const targetPosition = target.getBoundingClientRect().top + window.scrollY - navHeight;
-          window.scrollTo({ top: targetPosition, behavior: 'smooth' });
-        }
-      });
-    });
-
-    // ── Hamburger menu ──
-    const hamburger = document.getElementById('hamburger');
-    const navLinks = document.getElementById('navLinks');
-
-    hamburger.addEventListener('click', () => {
-      navLinks.classList.toggle('active');
-      hamburger.classList.toggle('active');
-      const expanded = hamburger.getAttribute('aria-expanded') === 'true';
-      hamburger.setAttribute('aria-expanded', String(!expanded));
-    });
-
-    // Close menu when a link is tapped
-    navLinks.querySelectorAll('a').forEach(link => {
-      link.addEventListener('click', () => {
-        navLinks.classList.remove('active');
-        hamburger.classList.remove('active');
-        hamburger.setAttribute('aria-expanded', 'false');
-      });
-    });
-
-    // ── Reservation form ──
-    function handleReservation(e) {
-      e.preventDefault();
-      const name = document.getElementById('name').value;
-      const date = document.getElementById('date').value;
-      const time = document.getElementById('time').value;
-      const guests = document.getElementById('guests').value;
-      alert(`Thank you, ${name}! Your reservation request for ${guests} guest(s) on ${date} at ${time} has been received. We will confirm within 24 hours.`);
-      e.target.reset();
-    }
-
-    // ── Min date = today ──
-    const dateInput = document.getElementById('date');
-    dateInput.setAttribute('min', new Date().toISOString().split('T')[0]);
   </script>
-
 </body>
 </html>

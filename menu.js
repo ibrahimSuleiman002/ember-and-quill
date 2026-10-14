@@ -9,8 +9,9 @@ const siteConfig = {
   currency: "₦",
 
   // Contact & Hours
-  address: "42 Ember Lane, Wuse II, Abuja",
-  phone: "+234 803 555 0142",
+  address: "42 Ember Lane, Wuse II, Abuja, Nigeria",
+  phone: "07063134521",
+  phoneIntl: "+2347063134521",
   email: "hello@emberandquill.ng",
 
   hours: [
@@ -82,5 +83,12 @@ const siteConfig = {
     { name: "Jollof Rice & Grilled Chicken", desc: "Smoky party jollof, obokun pepper, fried plantain", price: 8500 },
     { name: "Smoked Plantain & Ice Cream", desc: "Caramelized plantain, coconut ice cream, palm sugar", price: 4000 },
     { name: "The Quill's Old Fashioned", desc: "Rye whiskey, smoked maple, bitters, orange oils", price: 8000 }
+  ],
+
+  // Reviews
+  reviews: [
+    { name: "Adaeze", rating: 5, text: "The suya wings were incredible — smoky, spicy, and perfectly charred. Best I've had in Abuja." },
+    { name: "Tunde", rating: 5, text: "Booked for a birthday dinner. The ribeye was outstanding and the service was warm and attentive." },
+    { name: "Ngozi", rating: 4, text: "Great atmosphere and the jollof rice is the real deal. Will definitely be back with friends." }
   ]
 };
