@@ -1,9 +1,10 @@
 {
-  "rewrites": [
+  "redirects": [
     {
       "source": "/",
       "has": [{ "type": "host", "value": "ember-quill-admin.vercel.app" }],
-      "destination": "/admin.html"
+      "destination": "/admin.html",
+      "permanent": false
     }
   ]
 }
