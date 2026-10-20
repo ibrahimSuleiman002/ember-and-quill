@@ -1,0 +1,9 @@
+{
+  "rewrites": [
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "ember-quill-admin.vercel.app" }],
+      "destination": "/admin.html"
+    }
+  ]
+}
