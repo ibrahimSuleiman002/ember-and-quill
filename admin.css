@@ -602,3 +602,77 @@
     border-left: none;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   ADMIN OVERRIDES — flat background, sticky top bar, no photo
+   Appended last so these win over the shared stylesheet.
+   ═══════════════════════════════════════════════════════════ */
+
+html,
+body {
+  overflow-x: hidden;
+}
+
+/* Drop the shared restaurant photo + overlay on the admin page only */
+body,
+body::before,
+body::after {
+  background: #0f1115 !important;
+  background-image: none !important;
+}
+
+body::before,
+body::after {
+  content: none !important;
+  display: none !important;
+}
+
+.admin-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 20px;
+  background: #0b0d11;
+  border-bottom: 1px solid #23262e;
+}
+
+.admin-brand {
+  font-weight: 700;
+  font-size: 1.2rem;
+  white-space: nowrap;
+}
+
+.admin-brand span {
+  color: #ff5a36;
+}
+
+.admin-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+}
+
+.admin-banner {
+  position: relative;
+  z-index: 1;
+  padding: 10px 16px;
+  text-align: center;
+  background: #3a2f12;
+  color: #f3d98b;
+}
+
+@media (max-width: 600px) {
+  .admin-topbar {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 10px 12px;
+  }
+
+  .admin-tabs {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
