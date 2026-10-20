@@ -36,6 +36,7 @@
       </div>
     </section>
 
+    <!-- Placeholder photos, replace with the restaurant's own photos -->
     <div id="menuContent"></div>
   </main>
 
@@ -48,17 +49,18 @@
       <section>
         <div class="text-panel">
           <h2 class="menu-category-title">${cat.category}</h2>
-          <ul class="menu-list">
+          <div class="menu-cards">
             ${cat.items.map(item => `
-              <li class="menu-item">
-                <div class="menu-item-info">
-                  <div class="menu-item-name">${item.name}</div>
-                  <div class="menu-item-desc">${item.desc}</div>
+              <article class="menu-card">
+                <img class="menu-card-img" src="images/${item.image}" alt="${item.name} — Ember & Quill menu photo" loading="lazy">
+                <div class="menu-card-body">
+                  <h3 class="menu-card-name">${item.name}</h3>
+                  <p class="menu-card-desc">${item.desc}</p>
+                  <div class="menu-card-price">${fmtPrice(item.price)}</div>
                 </div>
-                <div class="menu-item-price">${fmtPrice(item.price)}</div>
-              </li>
+              </article>
             `).join('')}
-          </ul>
+          </div>
         </div>
       </section>
     `).join('');

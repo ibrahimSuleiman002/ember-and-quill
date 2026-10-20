@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Ember &amp; Quill</title>
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Instrument+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+  <header class="admin-topbar">
+    <div class="admin-brand">Ember &amp; Quill <span>Admin</span></div>
+    <nav class="admin-tabs" aria-label="Admin sections">
+      <button type="button" data-view="orders" class="active">Orders</button>
+      <button type="button" data-view="customers">Customers</button>
+      <button type="button" data-view="activity">Activity Log</button>
+    </nav>
+  </header>
+
+  <div class="admin-banner">Preview with sample data. Backend not connected yet.</div>
+
+  <main class="admin-main">
+
+    <section id="view-orders" class="admin-view active">
+      <div class="admin-view-head">
+        <h1>Incoming Orders</h1>
+        <div class="admin-filters" id="statusFilters" role="group" aria-label="Filter by status"></div>
+      </div>
+      <div id="ordersList" class="admin-list"></div>
+    </section>
+
+    <section id="view-customers" class="admin-view">
+      <div class="admin-view-head">
+        <h1>Customers</h1>
+        <div class="admin-view-head-actions">
+          <input id="customerSearch" class="admin-input admin-search" type="search" placeholder="Search name, phone or email" aria-label="Search customers">
+          <button id="addCustomerBtn" type="button" class="btn-admin-primary">+ Add customer</button>
+        </div>
+      </div>
+      <div id="customersList" class="admin-list"></div>
+    </section>
+
+    <section id="view-activity" class="admin-view">
+      <h1>Activity Log</h1>
+      <div id="activityList" class="admin-list"></div>
+    </section>
+
+  </main>
+
+  <div id="panelBackdrop" class="admin-backdrop"></div>
+  <section id="panel" class="admin-panel" aria-label="Details panel">
+    <button id="panelClose" type="button" class="admin-panel-close" aria-label="Close panel">&times;</button>
+    <div id="panelContent"></div>
+  </section>
+
+  <div id="modal" class="admin-modal" role="dialog" aria-modal="true">
+    <div class="admin-modal-card">
+      <h2 id="modalTitle"></h2>
+      <p id="modalBody"></p>
+      <div id="modalFields"></div>
+      <textarea id="modalInput" class="admin-input admin-textarea" placeholder="Reason..."></textarea>
+      <div class="admin-modal-actions">
+        <button id="modalCancel" type="button" class="btn-admin-ghost">Cancel</button>
+        <button id="modalConfirm" type="button" class="btn-admin-primary">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="admin-toast" role="status"></div>
+
+  <script src="admin.js"></script>
+</body>
+</html>

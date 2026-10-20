@@ -1,0 +1,120 @@
+<!-- Template policy, to be reviewed by the restaurant before launch -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — Ember &amp; Quill</title>
+  <meta property="og:title" content="Privacy Policy — Ember & Quill">
+  <meta property="og:description" content="How Ember & Quill collects, uses, and protects your personal data.">
+  <meta property="og:image" content="https://ember-and-quill.vercel.app/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://ember-and-quill.vercel.app/privacy.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Privacy Policy — Ember & Quill">
+  <meta name="twitter:description" content="How Ember & Quill collects, uses, and protects your personal data.">
+  <meta name="twitter:image" content="https://ember-and-quill.vercel.app/og-image.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Instrument+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="privacy">
+
+  <div id="nav-mount"></div>
+
+  <main class="page-content">
+    <article class="policy">
+      <div class="text-panel">
+        <p class="section-label">Legal</p>
+        <h1>Privacy Policy</h1>
+        <p class="policy-meta">Last updated: <span id="policyDate"></span> &middot; Applies to Ember &amp; Quill, Abuja, Nigeria.</p>
+
+        <h2>1. Introduction</h2>
+        <p>
+          Ember &amp; Quill respects your privacy and is committed to protecting your personal data.
+          This policy explains what information we collect, why we collect it, who can see it, how long we keep it,
+          and how you can ask us to correct or delete it. It is intended to follow the
+          <strong>Nigeria Data Protection Act 2023</strong>.
+        </p>
+
+        <h2>2. What data we collect</h2>
+        <p>When you interact with us, we may collect the following personal data:</p>
+        <ul>
+          <li>Your name</li>
+          <li>Your phone number</li>
+          <li>Your email address</li>
+          <li>Delivery addresses (for orders delivered to you)</li>
+          <li>Reservation details (date, time, number of guests)</li>
+          <li>Order details (what you ordered, any special requests)</li>
+          <li>Messages you send us through WhatsApp or by phone</li>
+        </ul>
+
+        <h2>3. Why we collect it</h2>
+        <p>
+          We collect this information to take your reservations and orders, and to contact you about them.
+          This includes confirming a table, confirming an order, letting you know when a delivery is on its way,
+          and responding to any questions or special requests you send us.
+        </p>
+
+        <h2>4. Who can see your data</h2>
+        <p>
+          Only the Ember &amp; Quill team who need your information to take your reservation or order can see it.
+          We do not sell your personal data to anyone, and we do not share it with third parties for marketing.
+          If we ever work with a service provider (for example, a delivery partner) who needs your details to
+          complete your order, we only share the minimum information required to do that job.
+        </p>
+
+        <h2>5. Payments</h2>
+        <p>
+          Payment card details are never stored on our own systems. If you pay by card, the payment is handled
+          entirely by a secure, licensed payment provider. We only ever see the outcome of the payment
+          (whether it succeeded), never your full card number or security code.
+        </p>
+
+        <h2>6. How long we keep it</h2>
+        <p>
+          We keep your personal data only for as long as it is needed to fulfil your reservation or order,
+          and for a short period afterwards so we can deal with any follow-up questions. Reservation and order
+          records are reviewed regularly and deleted when they are no longer needed.
+        </p>
+
+        <h2>7. Your rights</h2>
+        <p>You can ask us at any time to:</p>
+        <ul>
+          <li>Show you the personal data we hold about you</li>
+          <li>Correct any data that is wrong or out of date</li>
+          <li>Delete your personal data</li>
+          <li>Stop us from using your data for a particular purpose</li>
+        </ul>
+
+        <h2>8. How to contact us</h2>
+        <p>
+          To ask for your data to be corrected or deleted, or to ask any question about this policy,
+          call us on <a href="#" id="policyPhoneLink">07063134521</a>.
+          We will respond to your request as soon as we can.
+        </p>
+
+        <h2>9. Changes to this policy</h2>
+        <p>
+          If we change this policy, we will update the date at the top of this page. Please check back
+          occasionally to stay informed.
+        </p>
+      </div>
+    </article>
+  </main>
+
+  <div id="footer-mount"></div>
+
+  <script src="menu.js"></script>
+  <script src="site.js"></script>
+  <script>
+    document.getElementById('policyDate').textContent = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    var pl = document.getElementById('policyPhoneLink');
+    pl.textContent = siteConfig.phone;
+    pl.href = 'tel:' + siteConfig.phoneIntl;
+  </script>
+</body>
+</html>

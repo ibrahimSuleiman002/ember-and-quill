@@ -48,6 +48,7 @@ function renderFooter() {
           <li><a href="gallery.html">Gallery</a></li>
           <li><a href="reservations.html">Reservations</a></li>
           <li><a href="contact.html">Contact</a></li>
+          <li><a href="privacy.html">Privacy Policy</a></li>
         </ul>
         <p class="footer-copy" id="footerCopy"></p>
       </div>
