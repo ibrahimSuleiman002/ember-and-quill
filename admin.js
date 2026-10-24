@@ -40,12 +40,23 @@ const ORDER_STATUS_ACTIONS = {
   OUT_FOR_DELIVERY: "ORDER_OUT_FOR_DELIVERY"
 };
 
-// Preparing and Delivered are no longer offered as filters, but the
-// labels/styles stay so older rows still display correctly.
+// The payment step is part of the order filters now: Awaiting payment
+// is an unpaid PENDING_APPROVAL order, and Paid (ready to approve) is a
+// paid one. Preparing and Delivered stay out of the filters, but their
+// labels/styles remain so older rows still display correctly.
 const ORDER_FILTERS = [
-  "PENDING_APPROVAL", "APPROVED", "PAID", "OUT_FOR_DELIVERY",
-  "REJECTED", "CANCELLED"
+  "ALL", "AWAITING_PAYMENT", "PAID_READY", "APPROVED",
+  "OUT_FOR_DELIVERY", "REJECTED", "CANCELLED"
 ];
+const ORDER_FILTER_LABELS = {
+  ALL: "All",
+  AWAITING_PAYMENT: "Awaiting payment",
+  PAID_READY: "Paid (ready to approve)",
+  APPROVED: "Approved",
+  OUT_FOR_DELIVERY: "Out for delivery",
+  REJECTED: "Rejected",
+  CANCELLED: "Cancelled"
+};
 
 const RESERVATION_STATUSES = ["PENDING", "CONFIRMED", "CANCELLED"];
 const RESERVATION_LABELS = {
@@ -72,7 +83,6 @@ const UNUSUAL_TOTAL = 100000;
 const state = {
   view: "orders",
   statusFilter: "ALL",
-  paymentFilter: "ALL",
   resFilter: "ALL",
   customerSearch: "",
   orders: [],
@@ -117,6 +127,23 @@ function statusLabel(s) {
 
 function statusClass(o) {
   return STATUS_ORDER.indexOf(o.status) !== -1 ? "status-" + o.status : "status-UNKNOWN";
+}
+
+function isUnpaidPending(o) {
+  return o.status === "PENDING_APPROVAL" && !o.paid_at;
+}
+
+function paymentBadge(o) {
+  if (o.paid_at) return '<span class="tag tag-paid">Paid</span>';
+  if (o.status === "PENDING_APPROVAL") return '<span class="tag tag-awaiting">Awaiting payment</span>';
+  return "";
+}
+
+function orderMatchesFilter(o, filter) {
+  if (filter === "ALL") return true;
+  if (filter === "AWAITING_PAYMENT") return isUnpaidPending(o);
+  if (filter === "PAID_READY") return o.status === "PENDING_APPROVAL" && !!o.paid_at;
+  return o.status === filter;
 }
 
 function resStatusLabel(s) {
@@ -249,7 +276,6 @@ function cacheElements() {
   el.main = document.getElementById("adminMain");
 
   el.filters = document.getElementById("statusFilters");
-  el.paymentFilters = document.getElementById("paymentFilters");
   el.ordersList = document.getElementById("ordersList");
   el.reservationFilters = document.getElementById("reservationFilters");
   el.reservationsList = document.getElementById("reservationsList");
@@ -318,7 +344,6 @@ function setLoggedOut() {
   stopPolling();
   resetDataState();
   state.statusFilter = "ALL";
-  state.paymentFilter = "ALL";
   state.resFilter = "ALL";
   state.customerSearch = "";
   state.newOrders = 0;
@@ -446,7 +471,7 @@ async function loadOrders(opts) {
   try {
     const res = await client
       .from("orders")
-      .select("id, order_no, customer_name, phone, email, address, items, total, status, created_at")
+      .select("id, order_no, customer_name, phone, email, address, items, total, status, paid_at, created_at")
       .order("created_at", { ascending: false, nullsFirst: false });
 
     if (res.error) error = res.error;
@@ -594,40 +619,15 @@ async function logActivity(action, targetType, targetId) {
 
 /* ── Rendering ── */
 function renderFilters() {
-  const opts = ["ALL"].concat(ORDER_FILTERS);
-  el.filters.innerHTML = opts.map(function (s) {
-    return '<button type="button" class="filter-btn' + (state.statusFilter === s ? " active" : "") +
-      '" data-status="' + s + '">' + (s === "ALL" ? "All" : esc(statusLabel(s))) + "</button>";
+  el.filters.innerHTML = ORDER_FILTERS.map(function (key) {
+    return '<button type="button" class="filter-btn' + (state.statusFilter === key ? " active" : "") +
+      '" data-status="' + key + '">' + esc(ORDER_FILTER_LABELS[key] || key) + "</button>";
   }).join("");
 
   el.filters.querySelectorAll(".filter-btn").forEach(function (b) {
     b.addEventListener("click", function () {
       state.statusFilter = b.getAttribute("data-status");
       renderFilters();
-      renderOrders();
-    });
-  });
-}
-
-function renderPaymentFilters() {
-  if (!el.paymentFilters) return;
-
-  const opts = [
-    { key: "ALL", label: "All payments" },
-    { key: "PAID", label: "Paid" },
-    { key: "UNPAID", label: "Unpaid" }
-  ];
-
-  el.paymentFilters.innerHTML = opts.map(function (o) {
-    return '<button type="button" class="filter-btn' +
-      (state.paymentFilter === o.key ? " active" : "") +
-      '" data-payment="' + o.key + '">' + o.label + "</button>";
-  }).join("");
-
-  el.paymentFilters.querySelectorAll(".filter-btn").forEach(function (b) {
-    b.addEventListener("click", function () {
-      state.paymentFilter = b.getAttribute("data-payment");
-      renderPaymentFilters();
       renderOrders();
     });
   });
@@ -672,12 +672,7 @@ function renderOrders() {
   }
 
   const orders = state.orders.filter(function (o) {
-    const statusOk = state.statusFilter === "ALL" || o.status === state.statusFilter;
-    const paid = !!o.paid_at;
-    const paymentOk = state.paymentFilter === "ALL" ||
-      (state.paymentFilter === "PAID" && paid) ||
-      (state.paymentFilter === "UNPAID" && !paid);
-    return statusOk && paymentOk;
+    return orderMatchesFilter(o, state.statusFilter);
   });
 
   if (!orders.length) {
@@ -690,11 +685,10 @@ function renderOrders() {
   el.ordersList.innerHTML = orders.map(function (o) {
     const total = totalOf(o);
     const unusual = total >= UNUSUAL_TOTAL ? '<span class="tag tag-unusual">Unusual</span>' : "";
-    const paid = o.paid_at ? '<span class="tag tag-paid">Paid</span>' : "";
     const cancelled = o.status === "CANCELLED" ? '<span class="tag tag-cancelled">Cancelled</span>' : "";
     return '<button type="button" class="order-card" data-order-key="' + esc(orderKey(o)) + '">' +
       '<div class="order-card-main">' +
-        '<div class="order-card-top"><span class="order-number">' + esc(orderLabel(o)) + "</span>" + unusual + paid + cancelled + "</div>" +
+        '<div class="order-card-top"><span class="order-number">' + esc(orderLabel(o)) + "</span>" + unusual + paymentBadge(o) + cancelled + "</div>" +
         '<div class="order-card-customer">' + esc(o.customer_name || "Unknown customer") + "</div>" +
         '<div class="order-card-meta">' + esc(formatTime(o.created_at)) + "</div>" +
       "</div>" +
@@ -872,7 +866,6 @@ function renderActivity() {
 
 function renderAll() {
   renderFilters();
-  renderPaymentFilters();
   renderReservationFilters();
   renderOrders();
   renderReservations();
@@ -916,11 +909,23 @@ function hidePanelError() {
   }
 }
 
+function isPaymentRequiredError(err) {
+  const text = [err && err.message, err && err.details, err && err.hint, errorText(err)]
+    .filter(Boolean)
+    .join(" ");
+  return /must be paid before it can be approved/i.test(text);
+}
+
 function showPanelError(err) {
   const box = document.getElementById("panelError");
   if (!box) return;
-  box.innerHTML = "<strong>Could not update the order.</strong>" +
-    '<p class="admin-alert-detail">' + esc(errorText(err)) + "</p>";
+  if (isPaymentRequiredError(err)) {
+    box.innerHTML = "<strong>Order must be paid before it can be approved.</strong>" +
+      '<p class="admin-alert-detail">Mark the order as paid, then approve it.</p>';
+  } else {
+    box.innerHTML = "<strong>Could not update the order.</strong>" +
+      '<p class="admin-alert-detail">' + esc(errorText(err)) + "</p>";
+  }
   box.hidden = false;
 }
 
@@ -960,6 +965,7 @@ function renderOrderPanel(o) {
   const total = totalOf(o);
   const isUnusual = total >= UNUSUAL_TOTAL;
   const isPending = o.status === "PENDING_APPROVAL";
+  const waitingForPayment = isUnpaidPending(o);
   const phone = o.phone || "";
 
   const itemsHtml = items.length
@@ -981,7 +987,11 @@ function renderOrderPanel(o) {
   const actionButtons = [];
 
   if (isPending) {
-    actionButtons.push('<button type="button" id="approveBtn" class="btn-admin-primary">Approve</button>');
+    actionButtons.push('<button type="button" id="approveBtn" class="btn-admin-primary"' +
+      (waitingForPayment ? ' disabled aria-describedby="approveNote"' : "") + ">Approve</button>");
+    if (waitingForPayment) {
+      actionButtons.push('<span class="order-action-note" id="approveNote">Waiting for payment</span>');
+    }
     actionButtons.push('<button type="button" id="rejectBtn" class="btn-admin-danger">Reject</button>');
   }
 
@@ -1020,7 +1030,7 @@ function renderOrderPanel(o) {
     '<div class="line-item total"><span>Total</span><span>' + money(total) + "</span></div>" +
     "<h3>Status</h3>" +
     '<div class="admin-status-row"><span class="status ' + statusClass(o) + '">' + esc(statusLabel(o.status)) + "</span>" +
-      (o.paid_at ? '<span class="tag tag-paid">Paid</span>' : "") + "</div>" +
+      paymentBadge(o) + "</div>" +
     '<div id="panelError" class="admin-alert admin-alert-error" role="alert" hidden></div>' +
     actionsHtml +
     contactHtml;
@@ -1074,6 +1084,9 @@ async function updateStatus(order, status) {
   setPanelButtonsDisabled(false);
 
   if (error) {
+    // Repaint first so an unpaid order's Approve button stays disabled,
+    // then surface the database message (including "must be paid").
+    renderOrderPanel(order);
     showPanelError(error);
     return;
   }
@@ -1520,24 +1533,48 @@ function handleNewReservation(row) {
   loadReservations({ silent: true });
 }
 
-function handleOrderUpdated(row) {
-  if (!row || row.status !== "CANCELLED" || row.cancelled_by !== "customer") return;
+function refreshOpenOrderPanel() {
+  if (state.openOrderKey == null || state.saving) return;
+  const fresh = state.orders.find(function (o) {
+    return orderKey(o) === state.openOrderKey;
+  });
+  if (fresh) renderOrderPanel(fresh);
+}
+
+function handleOrderUpdated(row, oldRow) {
+  if (!row) return;
 
   const existing = state.orders.find(function (o) {
     return String(o.id) === String(row.id);
   });
+
+  // A payment can arrive from the customer's page or another admin. Use
+  // the row already on screen to detect empty → set; if it is not loaded,
+  // only trust an old row that actually carries paid_at.
+  let wasPaid = true;
+  if (existing) wasPaid = !!existing.paid_at;
+  else if (oldRow && Object.prototype.hasOwnProperty.call(oldRow, "paid_at")) wasPaid = !!oldRow.paid_at;
+
+  if (row.paid_at && !wasPaid) {
+    playBeep();
+    showTopAlert("orders", "Payment received for " + orderLabel(row) + ", ready to approve");
+
+    if (state.view !== "orders") {
+      state.newOrders += 1;
+      updateBadges();
+    }
+
+    loadOrders({ silent: true }).then(refreshOpenOrderPanel);
+    return;
+  }
+
+  if (row.status !== "CANCELLED" || row.cancelled_by !== "customer") return;
   if (existing && existing.status === "CANCELLED") return;
 
   playBeep();
   showTopAlert("orders", "Order " + orderLabel(row) + " was cancelled by the customer");
 
-  loadOrders({ silent: true }).then(function () {
-    if (state.openOrderKey == null || state.saving) return;
-    const fresh = state.orders.find(function (o) {
-      return orderKey(o) === state.openOrderKey;
-    });
-    if (fresh) renderOrderPanel(fresh);
-  });
+  loadOrders({ silent: true }).then(refreshOpenOrderPanel);
   loadActivity({ silent: true });
 }
 
@@ -1575,7 +1612,7 @@ function startRealtime() {
         handleNewReservation(payload.new);
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders" }, function (payload) {
-        handleOrderUpdated(payload.new);
+        handleOrderUpdated(payload.new, payload.old);
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "reservations" }, function (payload) {
         handleReservationUpdated(payload.new);
@@ -1711,7 +1748,6 @@ function init() {
   });
 
   renderFilters();
-  renderPaymentFilters();
   renderReservationFilters();
   boot();
 }

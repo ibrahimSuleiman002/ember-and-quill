@@ -252,6 +252,12 @@
   border: 1px solid rgba(111, 191, 138, 0.4);
 }
 
+.tag-awaiting {
+  background: rgba(232, 163, 61, 0.16);
+  color: #E8C07A;
+  border: 1px solid rgba(232, 163, 61, 0.4);
+}
+
 .tag-cancelled {
   background: rgba(169, 184, 176, 0.16);
   color: #D7DEE3;
@@ -426,6 +432,15 @@
   flex-wrap: wrap;
   gap: 0.6rem;
   margin-top: 1.25rem;
+}
+
+.order-action-note {
+  display: inline-flex;
+  align-items: center;
+  color: #E8C07A;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 .btn-admin-primary,
@@ -937,7 +952,8 @@ body::after {
 /* ── Busy buttons ── */
 .btn-admin-primary:disabled,
 .btn-admin-danger:disabled,
-.btn-admin-ghost:disabled {
+.btn-admin-ghost:disabled,
+.btn-admin-outline:disabled {
   opacity: 0.6;
   cursor: default;
 }
