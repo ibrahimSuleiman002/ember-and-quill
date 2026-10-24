@@ -63,7 +63,10 @@
     <section id="view-orders" class="admin-view active">
       <div class="admin-view-head">
         <h1>Incoming Orders</h1>
-        <div class="admin-filters" id="statusFilters" role="group" aria-label="Filter by status"></div>
+        <div class="admin-filter-stack">
+          <div class="admin-filters" id="statusFilters" role="group" aria-label="Filter by status"></div>
+          <div class="admin-filters" id="paymentFilters" role="group" aria-label="Filter by payment"></div>
+        </div>
       </div>
       <div id="ordersList" class="admin-list"></div>
     </section>

@@ -57,6 +57,7 @@ const RESERVATION_LABELS = {
 const ACTIVITY_LABELS = {
   ORDER_APPROVED: "Order approved",
   ORDER_REJECTED: "Order rejected",
+  ORDER_MARKED_PAID: "Marked as paid",
   ORDER_PREPARING: "Order preparing",
   ORDER_OUT_FOR_DELIVERY: "Marked out for delivery",
   ORDER_DELIVERED: "Order delivered",
@@ -71,6 +72,7 @@ const UNUSUAL_TOTAL = 100000;
 const state = {
   view: "orders",
   statusFilter: "ALL",
+  paymentFilter: "ALL",
   resFilter: "ALL",
   customerSearch: "",
   orders: [],
@@ -247,6 +249,7 @@ function cacheElements() {
   el.main = document.getElementById("adminMain");
 
   el.filters = document.getElementById("statusFilters");
+  el.paymentFilters = document.getElementById("paymentFilters");
   el.ordersList = document.getElementById("ordersList");
   el.reservationFilters = document.getElementById("reservationFilters");
   el.reservationsList = document.getElementById("reservationsList");
@@ -315,6 +318,7 @@ function setLoggedOut() {
   stopPolling();
   resetDataState();
   state.statusFilter = "ALL";
+  state.paymentFilter = "ALL";
   state.resFilter = "ALL";
   state.customerSearch = "";
   state.newOrders = 0;
@@ -605,6 +609,30 @@ function renderFilters() {
   });
 }
 
+function renderPaymentFilters() {
+  if (!el.paymentFilters) return;
+
+  const opts = [
+    { key: "ALL", label: "All payments" },
+    { key: "PAID", label: "Paid" },
+    { key: "UNPAID", label: "Unpaid" }
+  ];
+
+  el.paymentFilters.innerHTML = opts.map(function (o) {
+    return '<button type="button" class="filter-btn' +
+      (state.paymentFilter === o.key ? " active" : "") +
+      '" data-payment="' + o.key + '">' + o.label + "</button>";
+  }).join("");
+
+  el.paymentFilters.querySelectorAll(".filter-btn").forEach(function (b) {
+    b.addEventListener("click", function () {
+      state.paymentFilter = b.getAttribute("data-payment");
+      renderPaymentFilters();
+      renderOrders();
+    });
+  });
+}
+
 function renderReservationFilters() {
   const opts = ["ALL"].concat(RESERVATION_STATUSES);
   el.reservationFilters.innerHTML = opts.map(function (s) {
@@ -644,7 +672,12 @@ function renderOrders() {
   }
 
   const orders = state.orders.filter(function (o) {
-    return state.statusFilter === "ALL" || o.status === state.statusFilter;
+    const statusOk = state.statusFilter === "ALL" || o.status === state.statusFilter;
+    const paid = !!o.paid_at;
+    const paymentOk = state.paymentFilter === "ALL" ||
+      (state.paymentFilter === "PAID" && paid) ||
+      (state.paymentFilter === "UNPAID" && !paid);
+    return statusOk && paymentOk;
   });
 
   if (!orders.length) {
@@ -657,10 +690,11 @@ function renderOrders() {
   el.ordersList.innerHTML = orders.map(function (o) {
     const total = totalOf(o);
     const unusual = total >= UNUSUAL_TOTAL ? '<span class="tag tag-unusual">Unusual</span>' : "";
+    const paid = o.paid_at ? '<span class="tag tag-paid">Paid</span>' : "";
     const cancelled = o.status === "CANCELLED" ? '<span class="tag tag-cancelled">Cancelled</span>' : "";
     return '<button type="button" class="order-card" data-order-key="' + esc(orderKey(o)) + '">' +
       '<div class="order-card-main">' +
-        '<div class="order-card-top"><span class="order-number">' + esc(orderLabel(o)) + "</span>" + unusual + cancelled + "</div>" +
+        '<div class="order-card-top"><span class="order-number">' + esc(orderLabel(o)) + "</span>" + unusual + paid + cancelled + "</div>" +
         '<div class="order-card-customer">' + esc(o.customer_name || "Unknown customer") + "</div>" +
         '<div class="order-card-meta">' + esc(formatTime(o.created_at)) + "</div>" +
       "</div>" +
@@ -838,6 +872,7 @@ function renderActivity() {
 
 function renderAll() {
   renderFilters();
+  renderPaymentFilters();
   renderReservationFilters();
   renderOrders();
   renderReservations();
@@ -890,7 +925,7 @@ function showPanelError(err) {
 }
 
 function setPanelButtonsDisabled(disabled) {
-  ["approveBtn", "rejectBtn"].forEach(function (id) {
+  ["approveBtn", "rejectBtn", "markPaidBtn"].forEach(function (id) {
     const b = document.getElementById(id);
     if (b) b.disabled = disabled;
   });
@@ -942,20 +977,26 @@ function renderOrderPanel(o) {
       ", which is ₦100,000 or more.</p></div>"
     : "";
 
-  const actionHtml = isPending
-    ? '<div class="actions">' +
-        '<button type="button" id="approveBtn" class="btn-admin-primary">Approve</button>' +
-        '<button type="button" id="rejectBtn" class="btn-admin-danger">Reject</button>' +
-      "</div>"
-    : "";
-
   const nextActions = orderNextActions(o.status);
-  const progressHtml = nextActions.length
-    ? '<div class="actions">' + nextActions.map(function (next) {
-        return '<button type="button" class="order-next-status ' +
-          (next.primary ? "btn-admin-primary" : "btn-admin-outline") +
-          '" data-next-status="' + next.status + '">' + esc(next.label) + "</button>";
-      }).join("") + "</div>"
+  const actionButtons = [];
+
+  if (isPending) {
+    actionButtons.push('<button type="button" id="approveBtn" class="btn-admin-primary">Approve</button>');
+    actionButtons.push('<button type="button" id="rejectBtn" class="btn-admin-danger">Reject</button>');
+  }
+
+  nextActions.forEach(function (next) {
+    actionButtons.push('<button type="button" class="order-next-status ' +
+      (next.primary ? "btn-admin-primary" : "btn-admin-outline") +
+      '" data-next-status="' + next.status + '">' + esc(next.label) + "</button>");
+  });
+
+  if (!o.paid_at && o.status !== "CANCELLED" && o.status !== "REJECTED") {
+    actionButtons.push('<button type="button" id="markPaidBtn" class="btn-admin-outline">Mark as paid</button>');
+  }
+
+  const actionsHtml = actionButtons.length
+    ? '<div class="actions">' + actionButtons.join("") + "</div>"
     : "";
 
   const contactHtml = phone
@@ -978,10 +1019,10 @@ function renderOrderPanel(o) {
     '<div class="line-list">' + itemsHtml + "</div>" +
     '<div class="line-item total"><span>Total</span><span>' + money(total) + "</span></div>" +
     "<h3>Status</h3>" +
-    '<div class="admin-status-row"><span class="status ' + statusClass(o) + '">' + esc(statusLabel(o.status)) + "</span></div>" +
+    '<div class="admin-status-row"><span class="status ' + statusClass(o) + '">' + esc(statusLabel(o.status)) + "</span>" +
+      (o.paid_at ? '<span class="tag tag-paid">Paid</span>' : "") + "</div>" +
     '<div id="panelError" class="admin-alert admin-alert-error" role="alert" hidden></div>' +
-    actionHtml +
-    progressHtml +
+    actionsHtml +
     contactHtml;
 
   const approve = document.getElementById("approveBtn");
@@ -989,6 +1030,9 @@ function renderOrderPanel(o) {
 
   const reject = document.getElementById("rejectBtn");
   if (reject) reject.addEventListener("click", function () { confirmReject(o); });
+
+  const markPaid = document.getElementById("markPaidBtn");
+  if (markPaid) markPaid.addEventListener("click", function () { confirmMarkPaid(o); });
 
   el.panelContent.querySelectorAll(".order-next-status").forEach(function (btn) {
     btn.addEventListener("click", function () {
@@ -1069,6 +1113,64 @@ function confirmOutForDelivery(order) {
     confirmLabel: "Notify customer",
     onConfirm: function () { updateStatus(order, "OUT_FOR_DELIVERY"); }
   });
+}
+
+function confirmMarkPaid(order) {
+  openModal({
+    title: "Mark as paid",
+    body: "Confirm payment received?",
+    confirmLabel: "Mark as paid",
+    onConfirm: function () { markOrderPaid(order); }
+  });
+}
+
+async function markOrderPaid(order) {
+  if (state.saving || !client) return;
+
+  state.saving = true;
+  hidePanelError();
+  setPanelButtonsDisabled(true);
+
+  const paidAt = new Date().toISOString();
+  let error = null;
+
+  try {
+    let query = client.from("orders").update({ paid_at: paidAt });
+    query = order.id != null
+      ? query.eq("id", order.id)
+      : query.eq("order_no", order.order_no);
+
+    const res = await query.select("id");
+    if (res.error) {
+      error = res.error;
+    } else if (!res.data || !res.data.length) {
+      error = { message: "The order was not updated. Your account may not have permission to change orders." };
+    }
+  } catch (err) {
+    error = err;
+  }
+
+  state.saving = false;
+  setPanelButtonsDisabled(false);
+
+  if (error) {
+    showPanelError(error);
+    return;
+  }
+
+  order.paid_at = paidAt;
+  renderOrders();
+  renderCustomers();
+  renderOrderPanel(order);
+
+  const log = await logActivity("ORDER_MARKED_PAID", "order", order.id);
+  if (log.error) {
+    toast("Order " + orderLabel(order) + " marked as paid. The activity log could not be updated.");
+    return;
+  }
+
+  toast("Order " + orderLabel(order) + " marked as paid.");
+  await loadActivity();
 }
 
 /* ── Reservation actions ── */
@@ -1190,7 +1292,7 @@ let audioCtx = null;
 // unless the underlying rows actually changed.
 function ordersSignature(rows) {
   return (rows || []).map(function (o) {
-    return [o.id, o.order_no, o.customer_name, o.phone, o.total, o.status].join("|");
+    return [o.id, o.order_no, o.customer_name, o.phone, o.total, o.status, o.paid_at].join("|");
   }).join("~");
 }
 
@@ -1609,6 +1711,7 @@ function init() {
   });
 
   renderFilters();
+  renderPaymentFilters();
   renderReservationFilters();
   boot();
 }

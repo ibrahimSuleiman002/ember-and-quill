@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Track or Cancel — Ember &amp; Quill</title>
-  <meta name="description" content="Track an Ember &amp; Quill order or reservation, or cancel it online with your tracking code and phone number.">
-  <meta property="og:title" content="Track or Cancel — Ember & Quill">
-  <meta property="og:description" content="Track your order or reservation, or cancel it online.">
+  <title>Track Your Booking — Ember &amp; Quill</title>
+  <meta name="description" content="Track an Ember &amp; Quill order or reservation with your tracking code and phone number.">
+  <meta property="og:title" content="Track Your Booking — Ember & Quill">
+  <meta property="og:description" content="Track your order or reservation with your tracking code and phone number.">
   <meta property="og:image" content="https://ember-and-quill.vercel.app/og-image.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://ember-and-quill.vercel.app/track.html">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Track or Cancel — Ember & Quill">
-  <meta name="twitter:description" content="Track your order or reservation, or cancel it online.">
+  <meta name="twitter:title" content="Track Your Booking — Ember & Quill">
+  <meta name="twitter:description" content="Track your order or reservation with your tracking code and phone number.">
   <meta name="twitter:image" content="https://ember-and-quill.vercel.app/og-image.jpg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -58,6 +58,18 @@
       opacity: 1;
       transform: translate(-50%, 0);
     }
+
+    .track-cancel-link {
+      margin: 1rem 0 0;
+      font-size: 0.875rem;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    .track-cancel-link a {
+      color: var(--accent);
+      font-weight: 600;
+    }
   </style>
 </head>
 <body data-page="track">
@@ -68,7 +80,7 @@
 
     <section>
       <div class="text-panel track-page-panel">
-        <p class="section-label">Track or Cancel</p>
+        <p class="section-label">Track</p>
         <h1 class="section-title">Find Your Booking</h1>
         <p class="section-text">Enter the tracking code from your confirmation and the phone number you booked with.</p>
 
@@ -91,11 +103,10 @@
           <button type="submit" id="trackSubmit" class="btn btn-primary order-submit">Check</button>
         </form>
 
-        <div id="trackMessage" class="order-message" role="status" hidden></div>
         <div id="trackResults" class="track-results" aria-live="polite" hidden></div>
 
         <p class="track-help">
-          You can cancel an order while it is pending or approved, and a reservation while it is pending or confirmed.
+          To cancel, use the cancel link shown on a booking that can still be cancelled.
           For anything else, call <a href="tel:+2347063134521">07063134521</a>.
         </p>
       </div>

@@ -44,7 +44,8 @@ function renderFooter() {
           <li><a href="menu.html">Menu</a></li>
           <li><a href="gallery.html">Gallery</a></li>
           <li><a href="reservations.html">Reservations</a></li>
-          <li><a href="track.html">Track or cancel</a></li>
+          <li><a href="track.html">Track order</a></li>
+          <li><a href="cancel.html">Cancel order</a></li>
           <li><a href="contact.html">Contact</a></li>
           <li><a href="privacy.html">Privacy Policy</a></li>
         </ul>

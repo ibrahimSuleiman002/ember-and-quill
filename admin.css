@@ -120,6 +120,14 @@
   min-width: 180px;
 }
 
+.admin-filter-stack {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
 .admin-filters {
   display: flex;
   flex-wrap: wrap;
@@ -236,6 +244,12 @@
   background: rgba(255, 90, 54, 0.16);
   color: #FF8A70;
   border: 1px solid rgba(255, 90, 54, 0.4);
+}
+
+.tag-paid {
+  background: rgba(111, 191, 138, 0.16);
+  color: #7FD69F;
+  border: 1px solid rgba(111, 191, 138, 0.4);
 }
 
 .tag-cancelled {

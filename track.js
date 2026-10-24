@@ -1,9 +1,9 @@
 // ═══════════════════════════════════════════════════════════════
-//  track.js — customer tracking and cancellation
+//  track.js — customer tracking (view only)
 //  Visitors never read the tables. They only call the Supabase
-//  RPCs: track_order, track_reservation, cancel_order and
-//  cancel_reservation. The result is refreshed every 15 seconds
-//  while a booking is on screen.
+//  RPCs: track_order and track_reservation. The result is
+//  refreshed every 15 seconds while a booking is on screen.
+//  Cancelling lives on cancel.html.
 // ═══════════════════════════════════════════════════════════════
 
 (function () {
@@ -13,14 +13,13 @@
   var ui = {};
   var current = null;        // { code, phone, order, reservation }
   var refreshTimer = null;
-  var busy = false;          // a check or cancel request is running
+  var busy = false;          // a check request is running
   var refreshing = false;
   var checkSeq = 0;
   var audioCtx = null;
   var toastTimer = null;
 
   var NOT_FOUND = 'We could not find that booking. Check the code and phone number.';
-  var TOO_LATE = 'This can no longer be cancelled online. Please call 07063134521.';
   var UNAVAILABLE = 'Tracking is unavailable right now. Please call us on 07063134521.';
 
   var ORDER_LABELS = {
@@ -52,7 +51,6 @@
     ui.phone = $('trackPhone');
     ui.submit = $('trackSubmit');
     ui.error = $('trackError');
-    ui.message = $('trackMessage');
     ui.results = $('trackResults');
     ui.toast = $('trackToast');
   }
@@ -157,6 +155,20 @@
     return 0; // PENDING_APPROVAL, plus terminal states
   }
 
+  function isPaid(order) {
+    return !!(order && order.paid_at);
+  }
+
+  function canCancelOrder(order) {
+    var status = String(order.status || '');
+    return !isPaid(order) && (status === 'PENDING_APPROVAL' || status === 'APPROVED');
+  }
+
+  function canCancelReservation(reservation) {
+    var status = String(reservation.status || '');
+    return status === 'PENDING' || status === 'CONFIRMED';
+  }
+
   function progressHtml(status) {
     var terminal = status === 'CANCELLED' || status === 'REJECTED';
     var active = statusIndex(status);
@@ -202,9 +214,11 @@
         }).join('')
       : '<p class="track-empty-line">No items recorded.</p>';
 
-    var canCancel = status === 'PENDING_APPROVAL' || status === 'APPROVED';
-    var cancelHtml = canCancel
-      ? '<button type="button" class="btn track-cancel" data-cancel="order">Cancel order</button>'
+    var paidBadge = isPaid(order)
+      ? '<span class="track-pill is-done">Payment received</span>'
+      : '';
+    var cancelHtml = canCancelOrder(order)
+      ? '<p class="track-cancel-link"><a href="cancel.html">Need to cancel? Cancel this booking</a></p>'
       : '';
 
     return '<article class="track-card">' +
@@ -213,6 +227,7 @@
         '<span class="track-pill ' + orderPillClass(status) + '">' +
           esc(ORDER_LABELS[status] || status || 'Unknown') +
         '</span>' +
+        paidBadge +
       '</div>' +
       banner +
       progressHtml(status) +
@@ -231,9 +246,8 @@
       ? '<div class="track-banner is-cancelled">This reservation was cancelled.</div>'
       : '';
 
-    var canCancel = status === 'PENDING' || status === 'CONFIRMED';
-    var cancelHtml = canCancel
-      ? '<button type="button" class="btn track-cancel" data-cancel="reservation">Cancel reservation</button>'
+    var cancelHtml = canCancelReservation(reservation)
+      ? '<p class="track-cancel-link"><a href="cancel.html">Need to cancel? Cancel this booking</a></p>'
       : '';
 
     var notesHtml = '<dt>Notes</dt><dd>' +
@@ -275,18 +289,9 @@
     return null;
   }
 
-  function scalarText(data) {
-    var value = Array.isArray(data) ? data[0] : data;
-    if (value == null) return '';
-    if (typeof value === 'object') {
-      return String(value.cancel_order || value.cancel_reservation || value.status || '');
-    }
-    return String(value);
-  }
-
   function bookingSignature(order, reservation) {
     var orderPart = order
-      ? [order.status, order.order_no, order.total].join('|')
+      ? [order.status, order.order_no, order.total, order.paid_at].join('|')
       : '';
     var resPart = reservation
       ? [reservation.status, reservation.reservation_date,
@@ -336,20 +341,6 @@
     if (!ui.error) return;
     ui.error.hidden = true;
     ui.error.textContent = '';
-  }
-
-  function showMessage(message, kind) {
-    if (!ui.message) return;
-    ui.message.textContent = message;
-    ui.message.className = 'order-message ' + (kind === 'success' ? 'order-success' : 'order-error');
-    ui.message.hidden = false;
-  }
-
-  function hideMessage() {
-    if (!ui.message) return;
-    ui.message.hidden = true;
-    ui.message.textContent = '';
-    ui.message.className = 'order-message';
   }
 
   function showToast(message) {
@@ -405,7 +396,6 @@
     if (event) event.preventDefault();
 
     hideError();
-    hideMessage();
     stopRefresh();
 
     var code = normalizeTrackingCode(ui.code.value);
@@ -522,73 +512,6 @@
     }
   }
 
-  async function cancelBooking(type, button) {
-    if (!current || busy || !client) return;
-
-    setBusy(true, 'Please wait…');
-    if (button) button.disabled = true;
-
-    var rpcName = type === 'order' ? 'cancel_order' : 'cancel_reservation';
-    var result;
-
-    try {
-      result = await client.rpc(rpcName, {
-        p_code: current.code,
-        p_phone: current.phone
-      });
-    } catch (err) {
-      result = { error: err };
-    }
-
-    setBusy(false);
-
-    if (result.error) {
-      showMessage(UNAVAILABLE, 'error');
-    } else {
-      var outcome = scalarText(result.data);
-
-      if (outcome === 'CANCELLED') {
-        showMessage('Cancelled successfully.', 'success');
-        var refreshed = await refreshNow(false);
-        if (!refreshed) {
-          if (type === 'order' && current && current.order) {
-            current.order.status = 'CANCELLED';
-          }
-          if (type === 'reservation' && current && current.reservation) {
-            current.reservation.status = 'CANCELLED';
-          }
-          renderResults();
-        }
-      } else if (outcome === 'ALREADY_CANCELLED') {
-        showMessage('This is already cancelled.', 'success');
-        var refreshedAlready = await refreshNow(false);
-        if (!refreshedAlready) {
-          if (type === 'order' && current && current.order) {
-            current.order.status = 'CANCELLED';
-          }
-          if (type === 'reservation' && current && current.reservation) {
-            current.reservation.status = 'CANCELLED';
-          }
-          renderResults();
-        }
-      } else if (outcome === 'NOT_FOUND') {
-        showMessage(NOT_FOUND, 'error');
-        stopRefresh();
-        current = null;
-        ui.results.innerHTML = '';
-        ui.results.hidden = true;
-      } else if (outcome === 'TOO_LATE') {
-        showMessage(TOO_LATE, 'error');
-        await refreshNow(false);
-      } else {
-        showMessage(UNAVAILABLE, 'error');
-      }
-    }
-
-    // If the card was not re-rendered, let the customer try again.
-    if (button && document.body.contains(button)) button.disabled = false;
-  }
-
   function bindEvents() {
     ui.form.addEventListener('submit', checkBooking);
 
@@ -599,13 +522,6 @@
     });
 
     ui.phone.addEventListener('input', hideError);
-
-    ui.results.addEventListener('click', function (event) {
-      var button = event.target.closest ? event.target.closest('[data-cancel]') : null;
-      if (!button || busy) return;
-      if (!window.confirm('Are you sure?')) return;
-      cancelBooking(button.getAttribute('data-cancel'), button);
-    });
 
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'visible' && current) refreshNow(false);
