@@ -946,3 +946,143 @@ body::after {
     display: none;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   RESERVATIONS + ACTIVITY LOG
+   ═══════════════════════════════════════════════════════════ */
+
+/* Reservation status pills (orders use PENDING_APPROVAL etc.) */
+.status-PENDING {
+  background: rgba(232, 163, 61, 0.16);
+  color: #E8C07A;
+}
+
+.status-CONFIRMED {
+  background: rgba(143, 179, 154, 0.16);
+  color: #9FC6AE;
+}
+
+/* Reservation cards are read-only containers, not clickable */
+.reservation-card {
+  cursor: default;
+}
+
+.reservation-card:hover {
+  border-color: var(--border);
+}
+
+.reservation-top {
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.reservation-name {
+  margin-top: 0;
+  min-width: 0;
+  font-size: 1.0625rem;
+}
+
+.reservation-notes {
+  margin: 0.55rem 0 0;
+  padding-left: 0.65rem;
+  border-left: 2px solid var(--border);
+  color: var(--text);
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.reservation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+
+.reservation-actions .btn-admin-primary,
+.reservation-actions .btn-admin-danger,
+.reservation-actions .btn-admin-outline {
+  min-height: 40px;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.875rem;
+}
+
+/* Alerts inside a card grid span the full row */
+.admin-list > .admin-alert {
+  grid-column: 1 / -1;
+}
+
+/* Activity log: one readable column instead of the card grid */
+#activityList {
+  grid-template-columns: 1fr;
+}
+
+.activity-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  min-width: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.9rem 1.1rem;
+}
+
+.activity-main {
+  min-width: 0;
+}
+
+.activity-action {
+  color: var(--heading);
+  font-weight: 700;
+}
+
+.activity-target {
+  color: var(--muted);
+  font-size: 0.9375rem;
+  margin-top: 0.15rem;
+  overflow-wrap: anywhere;
+}
+
+.activity-meta {
+  text-align: right;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.activity-actor {
+  color: var(--text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  max-width: 220px;
+  overflow-wrap: anywhere;
+}
+
+.activity-time {
+  color: var(--muted);
+  font-size: 0.8125rem;
+  margin-top: 0.15rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .activity-item {
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .activity-meta {
+    text-align: left;
+  }
+
+  .activity-time {
+    white-space: normal;
+  }
+
+  .reservation-actions .btn-admin-primary,
+  .reservation-actions .btn-admin-danger,
+  .reservation-actions .btn-admin-outline {
+    flex: 1 1 auto;
+  }
+}

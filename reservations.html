@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Reservations — Ember &amp; Quill</title>
   <meta property="og:title" content="Reservations — Ember & Quill">
-  <meta property="og:description" content="Reserve your table at Ember & Quill. Call or WhatsApp to book.">
+  <meta property="og:description" content="Request a table online at Ember & Quill, or call us for same-day bookings.">
   <meta property="og:image" value="https://ember-and-quill.vercel.app/og-image.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -13,7 +13,7 @@
   <meta property="og:url" content="https://ember-and-quill.vercel.app/reservations.html">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Reservations — Ember & Quill">
-  <meta name="twitter:description" content="Reserve your table at Ember & Quill. Call or WhatsApp to book.">
+  <meta name="twitter:description" content="Request a table online at Ember & Quill, or call us for same-day bookings.">
   <meta name="twitter:image" value="https://ember-and-quill.vercel.app/og-image.jpg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,7 +29,7 @@
       <div class="text-panel" style="text-align:center;">
         <p class="section-label">Reservations</p>
         <h1 class="section-title">Book Your Table</h1>
-        <p class="section-text" style="margin-bottom:2rem;">Reservations are taken by phone or WhatsApp.</p>
+        <p class="section-text" style="margin-bottom:2rem;">Request a table below and we'll confirm it shortly. For a same-day booking, call us.</p>
 
         <p class="call-text" style="margin-bottom:1.5rem;">Need a table right away? Call us and we'll confirm immediately.</p>
 
@@ -37,12 +37,53 @@
           <a href="#" class="btn-call" id="callBtn1"></a>
           <a href="#" class="btn-whatsapp" id="waBtn1"></a>
         </div>
+      </div>
+    </section>
 
-        <div style="margin-top:2rem; padding-top:1.5rem; border-top:1px solid var(--border);">
-          <p class="section-text" style="color: var(--muted); font-size:1rem;">
-            Prefer to plan ahead? Message us on WhatsApp with your preferred date, time, and number of guests — we'll confirm within minutes.
-          </p>
-        </div>
+    <section id="reservation-request">
+      <div class="text-panel">
+        <p class="section-label">Request a Table</p>
+        <h2 class="section-title">Reservation Details</h2>
+        <p class="section-text">Tell us when you'd like to visit and how many guests are coming. We'll confirm by phone.</p>
+
+        <form id="reservationForm" class="order-form" novalidate>
+          <div class="order-fields">
+            <div class="order-field">
+              <label for="resName">Full name</label>
+              <input class="order-input" id="resName" name="name" type="text" autocomplete="name" placeholder="e.g. Ada Obi" required>
+            </div>
+            <div class="order-field">
+              <label for="resPhone">Phone number</label>
+              <input class="order-input" id="resPhone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="e.g. 0803 123 4567" required>
+            </div>
+            <div class="order-field">
+              <label for="resEmail">Email <span class="order-optional">(optional)</span></label>
+              <input class="order-input" id="resEmail" name="email" type="email" autocomplete="email" placeholder="you@example.com">
+            </div>
+            <div class="order-field">
+              <label for="resParty">Number of guests</label>
+              <input class="order-input" id="resParty" name="party_size" type="number" inputmode="numeric" min="1" max="50" step="1" placeholder="e.g. 4" required>
+            </div>
+            <div class="order-field">
+              <label for="resDate">Date</label>
+              <input class="order-input" id="resDate" name="date" type="date" required>
+            </div>
+            <div class="order-field">
+              <label for="resTime">Time</label>
+              <input class="order-input" id="resTime" name="time" type="text" placeholder="e.g. 7:30 PM" required>
+            </div>
+            <div class="order-field full">
+              <label for="resNotes">Notes <span class="order-optional">(optional)</span></label>
+              <textarea class="order-input" id="resNotes" name="notes" rows="3" placeholder="Allergies, celebrations, seating preference…" style="min-height:96px; resize:vertical;"></textarea>
+            </div>
+          </div>
+
+          <div id="reservationError" class="order-message order-error" role="alert" hidden></div>
+          <div id="reservationSuccess" class="order-message order-success" role="status" tabindex="-1" hidden>Reservation request received. We will confirm it shortly.</div>
+
+          <button type="submit" id="reservationSubmit" class="btn btn-primary order-submit">Request Reservation</button>
+          <p class="order-note">No payment is needed to book. We'll confirm your table by phone.</p>
+        </form>
       </div>
     </section>
 
@@ -70,7 +111,11 @@
 
   <div id="footer-mount"></div>
 
+  <!-- supabase-js v2 (jsDelivr) → site data → Supabase config → reservation logic -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="menu.js"></script>
   <script src="site.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="reservations.js"></script>
 </body>
 </html>

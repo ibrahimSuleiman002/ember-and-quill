@@ -2,10 +2,12 @@
 
 // ═══════════════════════════════════════════════════════════════
 //  Ember & Quill — Admin dashboard
-//  Live data from Supabase (public.orders). No sample data.
+//  Live data from Supabase: public.orders, public.reservations and
+//  public.activity_log. No sample data.
 //  Admin users sign in with Supabase Auth; the session persists
-//  across refreshes. Customers can only insert orders — this page
-//  reads and updates them as an authenticated admin.
+//  across refreshes. Customers can only insert orders/reservations.
+//  The activity log is append-only: this page only inserts and
+//  reads it, never edits or deletes rows.
 // ═══════════════════════════════════════════════════════════════
 
 const client = (typeof supabaseClient === "undefined") ? null : supabaseClient;
@@ -19,15 +21,37 @@ const STATUS_LABELS = {
   CANCELLED: "Cancelled"
 };
 
+const RESERVATION_STATUSES = ["PENDING", "CONFIRMED", "CANCELLED"];
+const RESERVATION_LABELS = {
+  PENDING: "Pending",
+  CONFIRMED: "Confirmed",
+  CANCELLED: "Cancelled"
+};
+
+const ACTIVITY_LABELS = {
+  ORDER_APPROVED: "Order approved",
+  ORDER_REJECTED: "Order rejected",
+  RESERVATION_CONFIRMED: "Reservation confirmed",
+  RESERVATION_CANCELLED: "Reservation cancelled"
+};
+
 const UNUSUAL_TOTAL = 100000;
 
 const state = {
   view: "orders",
   statusFilter: "ALL",
+  resFilter: "ALL",
   customerSearch: "",
   orders: [],
-  loading: false,
-  loadError: null,
+  reservations: [],
+  activity: [],
+  ordersLoading: true,
+  ordersError: null,
+  resLoading: true,
+  resError: null,
+  resActionError: null,
+  activityLoading: true,
+  activityError: null,
   saving: false,
   authed: false
 };
@@ -54,6 +78,14 @@ function statusLabel(s) {
 
 function statusClass(o) {
   return STATUS_ORDER.indexOf(o.status) !== -1 ? "status-" + o.status : "status-UNKNOWN";
+}
+
+function resStatusLabel(s) {
+  return RESERVATION_LABELS[s] || String(s || "Unknown");
+}
+
+function resStatusClass(s) {
+  return RESERVATION_STATUSES.indexOf(s) !== -1 ? "status-" + s : "status-UNKNOWN";
 }
 
 function orderLabel(o) {
@@ -110,6 +142,49 @@ function formatTime(value) {
   });
 }
 
+// reservation_date is a plain date (YYYY-MM-DD) — parse it locally so
+// the weekday never shifts because of a timezone.
+function formatDate(value) {
+  if (!value) return "—";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value));
+  if (!m) return String(value);
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  if (isNaN(d.getTime())) return String(value);
+  return d.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
+}
+
+function guestsLabel(n) {
+  const v = Number(n) || 0;
+  return v + (v === 1 ? " guest" : " guests");
+}
+
+function activityLabel(action) {
+  if (ACTIVITY_LABELS[action]) return ACTIVITY_LABELS[action];
+  const text = String(action || "Action").replace(/_/g, " ").toLowerCase();
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function activityTarget(entry) {
+  if (entry.target_type === "order") {
+    const o = state.orders.find(function (x) {
+      return String(x.id) === String(entry.target_id);
+    });
+    return o ? orderLabel(o) : "Order";
+  }
+  if (entry.target_type === "reservation") {
+    const r = state.reservations.find(function (x) {
+      return String(x.id) === String(entry.target_id);
+    });
+    return r ? "Reservation — " + (r.customer_name || "guest") : "Reservation";
+  }
+  return entry.target_type || "—";
+}
+
 /* ── Element refs ── */
 const el = {};
 
@@ -131,6 +206,8 @@ function cacheElements() {
 
   el.filters = document.getElementById("statusFilters");
   el.ordersList = document.getElementById("ordersList");
+  el.reservationFilters = document.getElementById("reservationFilters");
+  el.reservationsList = document.getElementById("reservationsList");
   el.customersList = document.getElementById("customersList");
   el.activityList = document.getElementById("activityList");
   el.customerSearch = document.getElementById("customerSearch");
@@ -176,13 +253,25 @@ function showLogin(message) {
   else hideLoginError();
 }
 
+function resetDataState() {
+  state.orders = [];
+  state.reservations = [];
+  state.activity = [];
+  state.ordersLoading = true;
+  state.resLoading = true;
+  state.activityLoading = true;
+  state.ordersError = null;
+  state.resError = null;
+  state.activityError = null;
+  state.resActionError = null;
+  state.saving = false;
+}
+
 function setLoggedOut() {
   state.authed = false;
-  state.orders = [];
-  state.loadError = null;
-  state.loading = false;
-  state.saving = false;
+  resetDataState();
   state.statusFilter = "ALL";
+  state.resFilter = "ALL";
   state.customerSearch = "";
   if (el.customerSearch) el.customerSearch.value = "";
   closePanel();
@@ -206,7 +295,7 @@ function setAuthed(session) {
   el.liveNote.hidden = false;
   hideLoginError();
   setView("orders");
-  loadOrders();
+  loadDashboard();
 }
 
 function setLoginBusy(busy) {
@@ -278,11 +367,16 @@ async function handleSignOut() {
 }
 
 /* ── Data ── */
+function loadDashboard() {
+  return Promise.all([loadOrders(), loadReservations(), loadActivity()]);
+}
+
 async function loadOrders() {
   if (!client) return;
-  state.loading = true;
-  state.loadError = null;
+  state.ordersLoading = true;
+  state.ordersError = null;
   renderOrders();
+  renderCustomers();
 
   try {
     const res = await client
@@ -291,18 +385,90 @@ async function loadOrders() {
       .order("created_at", { ascending: false, nullsFirst: false });
 
     if (res.error) {
-      state.loadError = res.error;
+      state.ordersError = res.error;
       state.orders = [];
     } else {
       state.orders = res.data || [];
     }
   } catch (err) {
-    state.loadError = err;
+    state.ordersError = err;
     state.orders = [];
   }
 
-  state.loading = false;
-  renderAll();
+  state.ordersLoading = false;
+  renderOrders();
+  renderCustomers();
+  renderActivity();
+}
+
+async function loadReservations() {
+  if (!client) return;
+  state.resLoading = true;
+  state.resError = null;
+  renderReservations();
+
+  try {
+    const res = await client
+      .from("reservations")
+      .select("id, customer_name, phone, email, party_size, reservation_date, reservation_time, notes, status, created_at")
+      .order("created_at", { ascending: false, nullsFirst: false });
+
+    if (res.error) {
+      state.resError = res.error;
+      state.reservations = [];
+    } else {
+      state.reservations = res.data || [];
+    }
+  } catch (err) {
+    state.resError = err;
+    state.reservations = [];
+  }
+
+  state.resLoading = false;
+  renderReservations();
+  renderActivity();
+}
+
+async function loadActivity() {
+  if (!client) return;
+  state.activityLoading = true;
+  state.activityError = null;
+  renderActivity();
+
+  try {
+    const res = await client
+      .from("activity_log")
+      .select("id, actor_email, action, target_type, target_id, created_at")
+      .order("created_at", { ascending: false, nullsFirst: false });
+
+    if (res.error) {
+      state.activityError = res.error;
+      state.activity = [];
+    } else {
+      state.activity = res.data || [];
+    }
+  } catch (err) {
+    state.activityError = err;
+    state.activity = [];
+  }
+
+  state.activityLoading = false;
+  renderActivity();
+}
+
+async function logActivity(action, targetType, targetId) {
+  if (!client) return { error: { message: "Not connected to Supabase." } };
+  try {
+    const res = await client.from("activity_log").insert({
+      actor_email: state.userEmail || null,
+      action: action,
+      target_type: targetType,
+      target_id: targetId == null ? null : String(targetId)
+    });
+    return { error: res.error || null };
+  } catch (err) {
+    return { error: err };
+  }
 }
 
 /* ── Rendering ── */
@@ -322,25 +488,41 @@ function renderFilters() {
   });
 }
 
-function renderLoadError(container) {
+function renderReservationFilters() {
+  const opts = ["ALL"].concat(RESERVATION_STATUSES);
+  el.reservationFilters.innerHTML = opts.map(function (s) {
+    return '<button type="button" class="filter-btn' + (state.resFilter === s ? " active" : "") +
+      '" data-status="' + s + '">' + (s === "ALL" ? "All" : esc(resStatusLabel(s))) + "</button>";
+  }).join("");
+
+  el.reservationFilters.querySelectorAll(".filter-btn").forEach(function (b) {
+    b.addEventListener("click", function () {
+      state.resFilter = b.getAttribute("data-status");
+      renderReservationFilters();
+      renderReservations();
+    });
+  });
+}
+
+function renderLoadError(container, err, retryFn) {
   container.innerHTML =
     '<div class="admin-alert admin-alert-error" role="alert">' +
       "<strong>Could not load data from Supabase.</strong>" +
-      '<p class="admin-alert-detail">' + esc(errorText(state.loadError)) + "</p>" +
+      '<p class="admin-alert-detail">' + esc(errorText(err)) + "</p>" +
       '<button type="button" class="btn-admin-ghost" data-retry="1">Try again</button>' +
     "</div>";
 
   const retry = container.querySelector("[data-retry]");
-  if (retry) retry.addEventListener("click", loadOrders);
+  if (retry) retry.addEventListener("click", retryFn);
 }
 
 function renderOrders() {
-  if (state.loading) {
+  if (state.ordersLoading) {
     el.ordersList.innerHTML = '<p class="empty">Loading orders…</p>';
     return;
   }
-  if (state.loadError) {
-    renderLoadError(el.ordersList);
+  if (state.ordersError) {
+    renderLoadError(el.ordersList, state.ordersError, loadOrders);
     return;
   }
 
@@ -405,12 +587,12 @@ function customerGroups() {
 }
 
 function renderCustomers() {
-  if (state.loading) {
+  if (state.ordersLoading) {
     el.customersList.innerHTML = '<p class="empty">Loading customers…</p>';
     return;
   }
-  if (state.loadError) {
-    renderLoadError(el.customersList);
+  if (state.ordersError) {
+    renderLoadError(el.customersList, state.ordersError, loadOrders);
     return;
   }
 
@@ -440,13 +622,107 @@ function renderCustomers() {
   }).join("");
 }
 
+function reservationCard(r) {
+  const isPending = r.status === "PENDING";
+  const phone = r.phone || "";
+  const busy = state.saving ? " disabled" : "";
+
+  const notesHtml = r.notes
+    ? '<p class="reservation-notes">' + esc(r.notes) + "</p>"
+    : "";
+
+  const actionHtml = isPending
+    ? '<button type="button" class="btn-admin-primary res-action" data-action="confirm" data-res-id="' +
+        esc(r.id) + '"' + busy + ">Confirm</button>" +
+      '<button type="button" class="btn-admin-danger res-action" data-action="cancel" data-res-id="' +
+        esc(r.id) + '"' + busy + ">Cancel</button>"
+    : "";
+
+  const contactHtml = phone
+    ? '<a class="btn-admin-outline" href="tel:' + esc(phoneIntl(phone)) + '">Call ' + esc(phone) + "</a>" +
+      '<a class="btn-admin-outline" href="https://wa.me/' + esc(waNumber(phone)) + '" target="_blank" rel="noopener">WhatsApp</a>'
+    : "";
+
+  return '<article class="order-card reservation-card">' +
+    '<div class="order-card-main">' +
+      '<div class="order-card-top reservation-top">' +
+        '<span class="order-card-customer reservation-name">' + esc(r.customer_name || "Unknown guest") + "</span>" +
+        '<span class="status ' + resStatusClass(r.status) + '">' + esc(resStatusLabel(r.status)) + "</span>" +
+      "</div>" +
+      '<div class="order-card-meta">' + esc(phone || "No phone") + " · " + guestsLabel(r.party_size) + "</div>" +
+      '<div class="order-card-meta">' + esc(formatDate(r.reservation_date)) + " at " + esc(r.reservation_time || "—") + "</div>" +
+      notesHtml +
+      (actionHtml || contactHtml
+        ? '<div class="reservation-actions">' + actionHtml + contactHtml + "</div>"
+        : "") +
+    "</div>" +
+  "</article>";
+}
+
+function renderReservations() {
+  if (state.resLoading) {
+    el.reservationsList.innerHTML = '<p class="empty">Loading reservations…</p>';
+    return;
+  }
+  if (state.resError) {
+    renderLoadError(el.reservationsList, state.resError, loadReservations);
+    return;
+  }
+
+  const alertHtml = state.resActionError
+    ? '<div class="admin-alert admin-alert-error" role="alert">' +
+        "<strong>Could not update the reservation.</strong>" +
+        '<p class="admin-alert-detail">' + esc(state.resActionError) + "</p>" +
+      "</div>"
+    : "";
+
+  const list = state.reservations.filter(function (r) {
+    return state.resFilter === "ALL" || r.status === state.resFilter;
+  });
+
+  if (!list.length) {
+    el.reservationsList.innerHTML = alertHtml + '<p class="empty">' +
+      (state.reservations.length ? "No reservations match this filter." : "No reservations yet.") +
+      "</p>";
+    return;
+  }
+
+  el.reservationsList.innerHTML = alertHtml + list.map(reservationCard).join("");
+}
+
 function renderActivity() {
-  el.activityList.innerHTML = '<p class="empty">Activity log is not connected yet.</p>';
+  if (state.activityLoading) {
+    el.activityList.innerHTML = '<p class="empty">Loading activity…</p>';
+    return;
+  }
+  if (state.activityError) {
+    renderLoadError(el.activityList, state.activityError, loadActivity);
+    return;
+  }
+  if (!state.activity.length) {
+    el.activityList.innerHTML = '<p class="empty">No activity yet.</p>';
+    return;
+  }
+
+  el.activityList.innerHTML = state.activity.map(function (entry) {
+    return '<div class="activity-item">' +
+      '<div class="activity-main">' +
+        '<div class="activity-action">' + esc(activityLabel(entry.action)) + "</div>" +
+        '<div class="activity-target">' + esc(activityTarget(entry)) + "</div>" +
+      "</div>" +
+      '<div class="activity-meta">' +
+        '<div class="activity-actor">' + esc(entry.actor_email || "Unknown admin") + "</div>" +
+        '<div class="activity-time">' + esc(formatTime(entry.created_at)) + "</div>" +
+      "</div>" +
+    "</div>";
+  }).join("");
 }
 
 function renderAll() {
   renderFilters();
+  renderReservationFilters();
   renderOrders();
+  renderReservations();
   renderCustomers();
   renderActivity();
 }
@@ -454,6 +730,7 @@ function renderAll() {
 /* ── Tabs ── */
 function setView(view) {
   state.view = view;
+  closePanel();
   document.querySelectorAll(".admin-tabs button").forEach(function (b) {
     b.classList.toggle("active", b.getAttribute("data-view") === view);
   });
@@ -463,7 +740,7 @@ function setView(view) {
   renderAll();
 }
 
-/* ── Details panel ── */
+/* ── Order details panel ── */
 function openPanel() {
   el.panel.classList.add("open");
   el.panelBackdrop.classList.add("open");
@@ -600,10 +877,24 @@ async function updateStatus(order, status) {
   }
 
   order.status = status;
-  toast("Order " + orderLabel(order) + " marked " + statusLabel(status).toLowerCase() + ".");
   renderOrders();
   renderCustomers();
   renderOrderPanel(order);
+
+  const action = status === "APPROVED" ? "ORDER_APPROVED"
+    : status === "REJECTED" ? "ORDER_REJECTED"
+    : null;
+  if (!action) return;
+
+  const log = await logActivity(action, "order", order.id);
+  if (log.error) {
+    toast("Order " + orderLabel(order) + " marked " + statusLabel(status).toLowerCase() +
+      ". The activity log could not be updated.");
+    return;
+  }
+
+  toast("Order " + orderLabel(order) + " marked " + statusLabel(status).toLowerCase() + ".");
+  await loadActivity();
 }
 
 function confirmReject(order) {
@@ -612,6 +903,70 @@ function confirmReject(order) {
     body: "Reject " + orderLabel(order) + "? The order status will change to Rejected.",
     confirmLabel: "Reject order",
     onConfirm: function () { updateStatus(order, "REJECTED"); }
+  });
+}
+
+/* ── Reservation actions ── */
+async function updateReservationStatus(reservation, status) {
+  if (state.saving || !client) return;
+
+  state.saving = true;
+  state.resActionError = null;
+  renderReservations();
+
+  let error = null;
+  try {
+    const res = await client
+      .from("reservations")
+      .update({ status: status })
+      .eq("id", reservation.id)
+      .select("id");
+
+    if (res.error) {
+      error = res.error;
+    } else if (!res.data || !res.data.length) {
+      error = { message: "The reservation was not updated. Your account may not have permission to change reservations." };
+    }
+  } catch (err) {
+    error = err;
+  }
+
+  state.saving = false;
+
+  if (error) {
+    state.resActionError = errorText(error);
+    renderReservations();
+    return;
+  }
+
+  reservation.status = status;
+  renderReservations();
+
+  const action = status === "CONFIRMED" ? "RESERVATION_CONFIRMED"
+    : status === "CANCELLED" ? "RESERVATION_CANCELLED"
+    : null;
+  if (!action) return;
+
+  const log = await logActivity(action, "reservation", reservation.id);
+  if (log.error) {
+    toast("Reservation " + resStatusLabel(status).toLowerCase() +
+      ". The activity log could not be updated.");
+    return;
+  }
+
+  toast("Reservation for " + (reservation.customer_name || "guest") + " " +
+    resStatusLabel(status).toLowerCase() + ".");
+  await loadActivity();
+}
+
+function confirmCancelReservation(reservation) {
+  openModal({
+    title: "Cancel reservation",
+    body: "Cancel the reservation for " + (reservation.customer_name || "this guest") +
+      " on " + formatDate(reservation.reservation_date) +
+      " at " + (reservation.reservation_time || "the requested time") + "?",
+    confirmLabel: "Cancel reservation",
+    onConfirm: function () { updateReservationStatus(reservation, "CANCELLED"); }
   });
 }
 
@@ -691,6 +1046,23 @@ function init() {
     renderCustomers();
   });
 
+  // Reservation buttons are re-rendered often, so delegate the clicks.
+  el.reservationsList.addEventListener("click", function (e) {
+    const btn = e.target.closest ? e.target.closest(".res-action") : null;
+    if (!btn) return;
+    const id = btn.getAttribute("data-res-id");
+    const reservation = state.reservations.find(function (r) {
+      return String(r.id) === String(id);
+    });
+    if (!reservation) return;
+
+    if (btn.getAttribute("data-action") === "confirm") {
+      updateReservationStatus(reservation, "CONFIRMED");
+    } else {
+      confirmCancelReservation(reservation);
+    }
+  });
+
   el.panelClose.addEventListener("click", closePanel);
   el.panelBackdrop.addEventListener("click", closePanel);
 
@@ -705,6 +1077,7 @@ function init() {
   });
 
   renderFilters();
+  renderReservationFilters();
   boot();
 }
 

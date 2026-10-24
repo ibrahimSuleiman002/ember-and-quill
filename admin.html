@@ -17,6 +17,7 @@
     <div class="admin-brand">Ember &amp; Quill <span>Admin</span></div>
     <nav class="admin-tabs" id="adminTabs" aria-label="Admin sections" hidden>
       <button type="button" data-view="orders" class="active">Orders</button>
+      <button type="button" data-view="reservations">Reservations</button>
       <button type="button" data-view="customers">Customers</button>
       <button type="button" data-view="activity">Activity Log</button>
     </nav>
@@ -60,6 +61,14 @@
         <div class="admin-filters" id="statusFilters" role="group" aria-label="Filter by status"></div>
       </div>
       <div id="ordersList" class="admin-list"></div>
+    </section>
+
+    <section id="view-reservations" class="admin-view">
+      <div class="admin-view-head">
+        <h1>Reservations</h1>
+        <div class="admin-filters" id="reservationFilters" role="group" aria-label="Filter reservations by status"></div>
+      </div>
+      <div id="reservationsList" class="admin-list"></div>
     </section>
 
     <section id="view-customers" class="admin-view">
