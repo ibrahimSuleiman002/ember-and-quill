@@ -22,11 +22,15 @@
     ui.email = $('resEmail');
     ui.party = $('resParty');
     ui.date = $('resDate');
+    ui.dateWords = $('resDateWords');
     ui.time = $('resTime');
     ui.notes = $('resNotes');
     ui.submit = $('reservationSubmit');
     ui.error = $('reservationError');
     ui.success = $('reservationSuccess');
+    ui.tracking = $('reservationTracking');
+    ui.trackingCode = $('reservationTrackingCode');
+    ui.copyCode = $('copyReservationCode');
   }
 
   // ── Dates ──
@@ -36,14 +40,54 @@
   }
 
   // Local calendar date as YYYY-MM-DD (matches <input type="date">)
-  function todayString() {
-    var d = new Date();
+  function dateString(d) {
     return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+
+  function todayString() {
+    return dateString(new Date());
+  }
+
+  function tomorrowString() {
+    var d = new Date();
+    d.setDate(d.getDate() + 1);
+    return dateString(d);
+  }
+
+  // "Saturday, 25 October 2026" — parsed locally so the weekday never shifts.
+  function dateInWords(value) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ''));
+    if (!m) return '';
+
+    var d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    if (isNaN(d.getTime())) return '';
+
+    try {
+      return d.toLocaleDateString('en-GB', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+    } catch (err) {
+      return d.toDateString();
+    }
+  }
+
+  function updateDateWords() {
+    if (!ui.dateWords) return;
+    ui.dateWords.textContent = dateInWords(ui.date ? ui.date.value : '');
   }
 
   function setDateFloor() {
     if (!ui.date) return;
     ui.date.min = todayString();
+  }
+
+  function setDefaultDate() {
+    if (!ui.date) return;
+    if (!ui.date.value) ui.date.value = tomorrowString();
+    updateDateWords();
   }
 
   // ── Messages ──
@@ -65,14 +109,38 @@
     if (field && typeof field.focus === 'function') field.focus();
   }
 
-  function showSuccess() {
+  function showSuccess(trackingCode) {
     if (ui.error) {
       ui.error.hidden = true;
       ui.error.textContent = '';
     }
     if (!ui.success) return;
+
+    if (ui.trackingCode) ui.trackingCode.textContent = trackingCode || '';
+    if (ui.tracking) ui.tracking.hidden = !trackingCode;
+    if (ui.copyCode) ui.copyCode.textContent = 'Copy';
+
     ui.success.hidden = false;
     if (typeof ui.success.focus === 'function') ui.success.focus();
+  }
+
+  function copyCode() {
+    var code = ui.trackingCode ? ui.trackingCode.textContent : '';
+    if (!code || typeof copyToClipboard !== 'function') return;
+
+    copyToClipboard(code).then(function () {
+      if (!ui.copyCode) return;
+      ui.copyCode.textContent = 'Copied';
+      setTimeout(function () {
+        if (ui.copyCode) ui.copyCode.textContent = 'Copy';
+      }, 2000);
+    }).catch(function () {
+      if (!ui.copyCode) return;
+      ui.copyCode.textContent = 'Copy failed';
+      setTimeout(function () {
+        if (ui.copyCode) ui.copyCode.textContent = 'Copy';
+      }, 2000);
+    });
   }
 
   function setSubmitting(isSubmitting) {
@@ -160,6 +228,11 @@
 
     setSubmitting(true);
 
+    // Generated in the browser and stored with the reservation.
+    var trackingCode = typeof generateTrackingCode === 'function'
+      ? generateTrackingCode()
+      : '';
+
     var error = null;
     try {
       // Insert only — no .select(), so the customer never reads the row back.
@@ -171,7 +244,8 @@
         party_size: Number(values.party),
         reservation_date: values.date,
         reservation_time: values.time,
-        notes: values.notes || null
+        notes: values.notes || null,
+        tracking_code: trackingCode || null
       });
       error = result.error;
     } catch (err) {
@@ -186,10 +260,11 @@
       return;
     }
 
-    // Success: clear the form and show the confirmation message.
+    // Success: clear the form, restore tomorrow's date, show the code.
     ui.form.reset();
     setDateFloor();
-    showSuccess();
+    setDefaultDate();
+    showSuccess(trackingCode);
   }
 
   // ── Init ──
@@ -199,6 +274,14 @@
     if (!ui.form) return;
 
     setDateFloor();
+    setDefaultDate();
+
+    if (ui.date) {
+      ui.date.addEventListener('change', updateDateWords);
+      ui.date.addEventListener('input', updateDateWords);
+    }
+    if (ui.copyCode) ui.copyCode.addEventListener('click', copyCode);
+
     ui.form.addEventListener('submit', submitReservation);
     ui.form.addEventListener('input', hideMessages);
   }

@@ -29,6 +29,9 @@
     ui.submit = $('placeOrderBtn');
     ui.error = $('orderError');
     ui.success = $('orderSuccess');
+    ui.tracking = $('orderTracking');
+    ui.trackingCode = $('orderTrackingCode');
+    ui.copyCode = $('copyOrderCode');
   }
 
   function esc(value) {
@@ -195,14 +198,38 @@
     if (field && typeof field.focus === 'function') field.focus();
   }
 
-  function showSuccess() {
+  function showSuccess(trackingCode) {
     if (ui.error) {
       ui.error.hidden = true;
       ui.error.textContent = '';
     }
     if (!ui.success) return;
+
+    if (ui.trackingCode) ui.trackingCode.textContent = trackingCode || '';
+    if (ui.tracking) ui.tracking.hidden = !trackingCode;
+    if (ui.copyCode) ui.copyCode.textContent = 'Copy';
+
     ui.success.hidden = false;
     if (typeof ui.success.focus === 'function') ui.success.focus();
+  }
+
+  function copyCode() {
+    var code = ui.trackingCode ? ui.trackingCode.textContent : '';
+    if (!code || typeof copyToClipboard !== 'function') return;
+
+    copyToClipboard(code).then(function () {
+      if (!ui.copyCode) return;
+      ui.copyCode.textContent = 'Copied';
+      setTimeout(function () {
+        if (ui.copyCode) ui.copyCode.textContent = 'Copy';
+      }, 2000);
+    }).catch(function () {
+      if (!ui.copyCode) return;
+      ui.copyCode.textContent = 'Copy failed';
+      setTimeout(function () {
+        if (ui.copyCode) ui.copyCode.textContent = 'Copy';
+      }, 2000);
+    });
   }
 
   function setSubmitting(isSubmitting) {
@@ -272,6 +299,12 @@
 
     setSubmitting(true);
 
+    // Generated in the browser and stored with the order. The customer
+    // needs this code plus their phone number to track or cancel later.
+    var trackingCode = typeof generateTrackingCode === 'function'
+      ? generateTrackingCode()
+      : '';
+
     var error = null;
     try {
       // Insert only — no .select(), so the customer never reads the row back.
@@ -283,7 +316,8 @@
         email: values.email || null,
         address: values.address,
         items: values.items,
-        total: cartTotal()
+        total: cartTotal(),
+        tracking_code: trackingCode || null
       });
       error = result.error;
     } catch (err) {
@@ -298,12 +332,12 @@
       return;
     }
 
-    // Success: clear the cart and the form (no order number to show).
+    // Success: clear the cart and the form, then show the tracking code.
     ui.form.reset();
     cart = [];
     renderCart();
     renderMenuQuantities();
-    showSuccess();
+    showSuccess(trackingCode);
   }
 
   // ── Init ──
@@ -327,6 +361,8 @@
 
     ui.form.addEventListener('submit', placeOrder);
     ui.form.addEventListener('input', hideMessages);
+
+    if (ui.copyCode) ui.copyCode.addEventListener('click', copyCode);
   }
 
   if (document.readyState === 'loading') {

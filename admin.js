@@ -15,13 +15,29 @@
 
 const client = (typeof supabaseClient === "undefined") ? null : supabaseClient;
 
-const STATUS_ORDER = ["PENDING_APPROVAL", "APPROVED", "PAID", "REJECTED", "CANCELLED"];
+const STATUS_ORDER = [
+  "PENDING_APPROVAL", "APPROVED", "PAID", "PREPARING",
+  "OUT_FOR_DELIVERY", "DELIVERED", "REJECTED", "CANCELLED"
+];
 const STATUS_LABELS = {
   PENDING_APPROVAL: "Pending approval",
   APPROVED: "Approved",
   PAID: "Paid",
+  PREPARING: "Preparing",
+  OUT_FOR_DELIVERY: "Out for delivery",
+  DELIVERED: "Delivered",
   REJECTED: "Rejected",
   CANCELLED: "Cancelled"
+};
+
+// Statuses the kitchen can move an approved order through.
+const ORDER_PROGRESS = ["APPROVED", "PREPARING", "OUT_FOR_DELIVERY", "DELIVERED"];
+const ORDER_STATUS_ACTIONS = {
+  APPROVED: "ORDER_APPROVED",
+  REJECTED: "ORDER_REJECTED",
+  PREPARING: "ORDER_PREPARING",
+  OUT_FOR_DELIVERY: "ORDER_OUT_FOR_DELIVERY",
+  DELIVERED: "ORDER_DELIVERED"
 };
 
 const RESERVATION_STATUSES = ["PENDING", "CONFIRMED", "CANCELLED"];
@@ -34,8 +50,13 @@ const RESERVATION_LABELS = {
 const ACTIVITY_LABELS = {
   ORDER_APPROVED: "Order approved",
   ORDER_REJECTED: "Order rejected",
+  ORDER_PREPARING: "Order preparing",
+  ORDER_OUT_FOR_DELIVERY: "Order out for delivery",
+  ORDER_DELIVERED: "Order delivered",
+  ORDER_CANCELLED_BY_CUSTOMER: "Cancelled by customer",
   RESERVATION_CONFIRMED: "Reservation confirmed",
-  RESERVATION_CANCELLED: "Reservation cancelled"
+  RESERVATION_CANCELLED: "Reservation cancelled",
+  RESERVATION_CANCELLED_BY_CUSTOMER: "Cancelled by customer"
 };
 
 const UNUSUAL_TOTAL = 100000;
@@ -57,6 +78,7 @@ const state = {
   activityError: null,
   saving: false,
   authed: false,
+  openOrderKey: null,
   newOrders: 0,
   newReservations: 0,
   titleCount: 0,
@@ -497,11 +519,18 @@ async function loadReservations(opts) {
   renderActivity();
 }
 
-async function loadActivity() {
+async function loadActivity(opts) {
   if (!client) return;
-  state.activityLoading = true;
-  state.activityError = null;
-  renderActivity();
+  const silent = !!(opts && opts.silent);
+
+  if (!silent) {
+    state.activityLoading = true;
+    state.activityError = null;
+    renderActivity();
+  }
+
+  let next = null;
+  let error = null;
 
   try {
     const res = await client
@@ -509,15 +538,28 @@ async function loadActivity() {
       .select("id, actor_email, action, target_type, target_id, created_at")
       .order("created_at", { ascending: false, nullsFirst: false });
 
-    if (res.error) {
-      state.activityError = res.error;
-      state.activity = [];
-    } else {
-      state.activity = res.data || [];
-    }
+    if (res.error) error = res.error;
+    else next = res.data || [];
   } catch (err) {
-    state.activityError = err;
+    error = err;
+  }
+
+  // Silent refreshes (realtime catch-up / polling) never blank the list.
+  if (silent) {
+    if (error || !next) return;
+    if (activitySignature(next) === activitySignature(state.activity)) return;
+    state.activity = next;
+    state.activityError = null;
+    state.activityLoading = false;
+    renderActivity();
+    return;
+  }
+
+  if (error) {
+    state.activityError = error;
     state.activity = [];
+  } else {
+    state.activity = next || [];
   }
 
   state.activityLoading = false;
@@ -608,9 +650,10 @@ function renderOrders() {
   el.ordersList.innerHTML = orders.map(function (o) {
     const total = totalOf(o);
     const unusual = total >= UNUSUAL_TOTAL ? '<span class="tag tag-unusual">Unusual</span>' : "";
+    const cancelled = o.status === "CANCELLED" ? '<span class="tag tag-cancelled">Cancelled</span>' : "";
     return '<button type="button" class="order-card" data-order-key="' + esc(orderKey(o)) + '">' +
       '<div class="order-card-main">' +
-        '<div class="order-card-top"><span class="order-number">' + esc(orderLabel(o)) + "</span>" + unusual + "</div>" +
+        '<div class="order-card-top"><span class="order-number">' + esc(orderLabel(o)) + "</span>" + unusual + cancelled + "</div>" +
         '<div class="order-card-customer">' + esc(o.customer_name || "Unknown customer") + "</div>" +
         '<div class="order-card-meta">' + esc(formatTime(o.created_at)) + "</div>" +
       "</div>" +
@@ -820,6 +863,7 @@ function openPanel() {
 function closePanel() {
   el.panel.classList.remove("open");
   el.panelBackdrop.classList.remove("open");
+  state.openOrderKey = null;
 }
 
 function hidePanelError() {
@@ -843,6 +887,9 @@ function setPanelButtonsDisabled(disabled) {
     const b = document.getElementById(id);
     if (b) b.disabled = disabled;
   });
+  el.panelContent.querySelectorAll(".order-next-status").forEach(function (b) {
+    b.disabled = disabled;
+  });
 }
 
 function openOrder(key) {
@@ -850,8 +897,24 @@ function openOrder(key) {
     return orderKey(x) === String(key);
   });
   if (!o) return;
+  state.openOrderKey = String(key);
   renderOrderPanel(o);
   openPanel();
+}
+
+// Which kitchen steps are still available from the current status.
+function orderNextActions(status) {
+  const normalised = status === "PAID" ? "APPROVED" : status;
+  const index = ORDER_PROGRESS.indexOf(normalised);
+  if (index === -1) return [];
+
+  return ORDER_PROGRESS.slice(index + 1).map(function (next, i) {
+    return {
+      status: next,
+      label: STATUS_LABELS[next],
+      primary: i === 0
+    };
+  });
 }
 
 function renderOrderPanel(o) {
@@ -883,6 +946,15 @@ function renderOrderPanel(o) {
       "</div>"
     : "";
 
+  const nextActions = orderNextActions(o.status);
+  const progressHtml = nextActions.length
+    ? '<div class="actions">' + nextActions.map(function (next) {
+        return '<button type="button" class="order-next-status ' +
+          (next.primary ? "btn-admin-primary" : "btn-admin-outline") +
+          '" data-next-status="' + next.status + '">' + esc(next.label) + "</button>";
+      }).join("") + "</div>"
+    : "";
+
   const contactHtml = phone
     ? '<div class="actions">' +
         '<a class="btn-admin-outline" href="tel:' + esc(phoneIntl(phone)) + '">Call ' + esc(phone) + "</a>" +
@@ -906,6 +978,7 @@ function renderOrderPanel(o) {
     '<div class="admin-status-row"><span class="status ' + statusClass(o) + '">' + esc(statusLabel(o.status)) + "</span></div>" +
     '<div id="panelError" class="admin-alert admin-alert-error" role="alert" hidden></div>' +
     actionHtml +
+    progressHtml +
     contactHtml;
 
   const approve = document.getElementById("approveBtn");
@@ -913,6 +986,12 @@ function renderOrderPanel(o) {
 
   const reject = document.getElementById("rejectBtn");
   if (reject) reject.addEventListener("click", function () { confirmReject(o); });
+
+  el.panelContent.querySelectorAll(".order-next-status").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      updateStatus(o, btn.getAttribute("data-next-status"));
+    });
+  });
 }
 
 async function updateStatus(order, status) {
@@ -952,9 +1031,7 @@ async function updateStatus(order, status) {
   renderCustomers();
   renderOrderPanel(order);
 
-  const action = status === "APPROVED" ? "ORDER_APPROVED"
-    : status === "REJECTED" ? "ORDER_REJECTED"
-    : null;
+  const action = ORDER_STATUS_ACTIONS[status] || null;
   if (!action) return;
 
   const log = await logActivity(action, "order", order.id);
@@ -985,11 +1062,15 @@ async function updateReservationStatus(reservation, status) {
   state.resActionError = null;
   renderReservations();
 
+  const patch = status === "CANCELLED"
+    ? { status: status, cancelled_by: "admin" }
+    : { status: status };
+
   let error = null;
   try {
     const res = await client
       .from("reservations")
-      .update({ status: status })
+      .update(patch)
       .eq("id", reservation.id)
       .select("id");
 
@@ -1100,6 +1181,12 @@ function reservationsSignature(rows) {
   return (rows || []).map(function (r) {
     return [r.id, r.customer_name, r.phone, r.party_size, r.reservation_date,
       r.reservation_time, r.notes, r.status].join("|");
+  }).join("~");
+}
+
+function activitySignature(rows) {
+  return (rows || []).map(function (a) {
+    return [a.id, a.actor_email, a.action, a.target_type, a.target_id, a.created_at].join("|");
   }).join("~");
 }
 
@@ -1314,6 +1401,47 @@ function handleNewReservation(row) {
   loadReservations({ silent: true });
 }
 
+function handleOrderUpdated(row) {
+  if (!row || row.status !== "CANCELLED" || row.cancelled_by !== "customer") return;
+
+  const existing = state.orders.find(function (o) {
+    return String(o.id) === String(row.id);
+  });
+  if (existing && existing.status === "CANCELLED") return;
+
+  playBeep();
+  showTopAlert("orders", "Order " + orderLabel(row) + " was cancelled by the customer");
+
+  loadOrders({ silent: true }).then(function () {
+    if (state.openOrderKey == null || state.saving) return;
+    const fresh = state.orders.find(function (o) {
+      return orderKey(o) === state.openOrderKey;
+    });
+    if (fresh) renderOrderPanel(fresh);
+  });
+  loadActivity({ silent: true });
+}
+
+function handleReservationUpdated(row) {
+  if (!row || row.status !== "CANCELLED" || row.cancelled_by !== "customer") return;
+
+  const existing = state.reservations.find(function (r) {
+    return String(r.id) === String(row.id);
+  });
+  if (existing && existing.status === "CANCELLED") return;
+
+  const name = row.customer_name || "a guest";
+  playBeep();
+  showTopAlert(
+    "reservations",
+    "Reservation for " + name + " on " + formatDate(row.reservation_date) +
+      " was cancelled by the customer"
+  );
+
+  loadReservations({ silent: true });
+  loadActivity({ silent: true });
+}
+
 function startRealtime() {
   if (!client || channel) return;
   setLiveStatus("connecting");
@@ -1326,6 +1454,12 @@ function startRealtime() {
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "reservations" }, function (payload) {
         handleNewReservation(payload.new);
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders" }, function (payload) {
+        handleOrderUpdated(payload.new);
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "reservations" }, function (payload) {
+        handleReservationUpdated(payload.new);
       })
       .subscribe(function (status) {
         if (status === "SUBSCRIBED") {
@@ -1361,6 +1495,7 @@ function startPolling() {
     if (!state.authed) return;
     loadOrders({ silent: true });
     loadReservations({ silent: true });
+    loadActivity({ silent: true });
   }, POLL_MS);
 }
 

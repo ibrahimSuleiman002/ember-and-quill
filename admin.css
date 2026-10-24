@@ -238,6 +238,12 @@
   border: 1px solid rgba(255, 90, 54, 0.4);
 }
 
+.tag-cancelled {
+  background: rgba(169, 184, 176, 0.16);
+  color: #D7DEE3;
+  border: 1px solid rgba(169, 184, 176, 0.35);
+}
+
 .status {
   display: inline-block;
   font-size: 0.75rem;
@@ -250,8 +256,15 @@
 .status-PENDING_APPROVAL { background: rgba(232, 163, 61, 0.16); color: #E8C07A; }
 .status-APPROVED { background: rgba(143, 179, 154, 0.16); color: #9FC6AE; }
 .status-PAID { background: rgba(111, 191, 138, 0.16); color: #7FD69F; }
+.status-PREPARING { background: rgba(255, 90, 54, 0.14); color: #FF9C85; }
+.status-OUT_FOR_DELIVERY { background: rgba(110, 168, 254, 0.16); color: #9CC4FF; }
+.status-DELIVERED { background: rgba(111, 191, 138, 0.2); color: #7FD69F; }
 .status-REJECTED { background: rgba(255, 90, 54, 0.16); color: #FF8A70; }
-.status-CANCELLED { background: rgba(169, 184, 176, 0.16); color: #B8BEC4; }
+.status-CANCELLED {
+  background: rgba(169, 184, 176, 0.18);
+  color: #D7DEE3;
+  border: 1px solid rgba(169, 184, 176, 0.35);
+}
 
 .empty {
   color: var(--muted);
