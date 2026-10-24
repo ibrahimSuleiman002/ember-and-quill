@@ -30,15 +30,22 @@ const STATUS_LABELS = {
   CANCELLED: "Cancelled"
 };
 
-// Statuses the kitchen can move an approved order through.
-const ORDER_PROGRESS = ["APPROVED", "PREPARING", "OUT_FOR_DELIVERY", "DELIVERED"];
+// The simplified flow has one next step after approval. PAID and
+// PREPARING are legacy statuses, treated as approved for this step.
+const ORDER_OUT_FROM = ["APPROVED", "PAID", "PREPARING"];
+const ORDER_OUT_LABEL = "Out for delivery - notify customer";
 const ORDER_STATUS_ACTIONS = {
   APPROVED: "ORDER_APPROVED",
   REJECTED: "ORDER_REJECTED",
-  PREPARING: "ORDER_PREPARING",
-  OUT_FOR_DELIVERY: "ORDER_OUT_FOR_DELIVERY",
-  DELIVERED: "ORDER_DELIVERED"
+  OUT_FOR_DELIVERY: "ORDER_OUT_FOR_DELIVERY"
 };
+
+// Preparing and Delivered are no longer offered as filters, but the
+// labels/styles stay so older rows still display correctly.
+const ORDER_FILTERS = [
+  "PENDING_APPROVAL", "APPROVED", "PAID", "OUT_FOR_DELIVERY",
+  "REJECTED", "CANCELLED"
+];
 
 const RESERVATION_STATUSES = ["PENDING", "CONFIRMED", "CANCELLED"];
 const RESERVATION_LABELS = {
@@ -51,7 +58,7 @@ const ACTIVITY_LABELS = {
   ORDER_APPROVED: "Order approved",
   ORDER_REJECTED: "Order rejected",
   ORDER_PREPARING: "Order preparing",
-  ORDER_OUT_FOR_DELIVERY: "Order out for delivery",
+  ORDER_OUT_FOR_DELIVERY: "Marked out for delivery",
   ORDER_DELIVERED: "Order delivered",
   ORDER_CANCELLED_BY_CUSTOMER: "Cancelled by customer",
   RESERVATION_CONFIRMED: "Reservation confirmed",
@@ -583,7 +590,7 @@ async function logActivity(action, targetType, targetId) {
 
 /* ── Rendering ── */
 function renderFilters() {
-  const opts = ["ALL"].concat(STATUS_ORDER);
+  const opts = ["ALL"].concat(ORDER_FILTERS);
   el.filters.innerHTML = opts.map(function (s) {
     return '<button type="button" class="filter-btn' + (state.statusFilter === s ? " active" : "") +
       '" data-status="' + s + '">' + (s === "ALL" ? "All" : esc(statusLabel(s))) + "</button>";
@@ -902,19 +909,15 @@ function openOrder(key) {
   openPanel();
 }
 
-// Which kitchen steps are still available from the current status.
+// The only forward step left in the simplified flow.
 function orderNextActions(status) {
-  const normalised = status === "PAID" ? "APPROVED" : status;
-  const index = ORDER_PROGRESS.indexOf(normalised);
-  if (index === -1) return [];
+  if (ORDER_OUT_FROM.indexOf(status) === -1) return [];
 
-  return ORDER_PROGRESS.slice(index + 1).map(function (next, i) {
-    return {
-      status: next,
-      label: STATUS_LABELS[next],
-      primary: i === 0
-    };
-  });
+  return [{
+    status: "OUT_FOR_DELIVERY",
+    label: ORDER_OUT_LABEL,
+    primary: true
+  }];
 }
 
 function renderOrderPanel(o) {
@@ -989,7 +992,12 @@ function renderOrderPanel(o) {
 
   el.panelContent.querySelectorAll(".order-next-status").forEach(function (btn) {
     btn.addEventListener("click", function () {
-      updateStatus(o, btn.getAttribute("data-next-status"));
+      const next = btn.getAttribute("data-next-status");
+      if (next === "OUT_FOR_DELIVERY") {
+        confirmOutForDelivery(o);
+      } else {
+        updateStatus(o, next);
+      }
     });
   });
 }
@@ -1051,6 +1059,15 @@ function confirmReject(order) {
     body: "Reject " + orderLabel(order) + "? The order status will change to Rejected.",
     confirmLabel: "Reject order",
     onConfirm: function () { updateStatus(order, "REJECTED"); }
+  });
+}
+
+function confirmOutForDelivery(order) {
+  openModal({
+    title: "Out for delivery",
+    body: "Notify the customer that this order is on the way?",
+    confirmLabel: "Notify customer",
+    onConfirm: function () { updateStatus(order, "OUT_FOR_DELIVERY"); }
   });
 }
 

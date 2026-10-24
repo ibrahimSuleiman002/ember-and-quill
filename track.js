@@ -16,6 +16,8 @@
   var busy = false;          // a check or cancel request is running
   var refreshing = false;
   var checkSeq = 0;
+  var audioCtx = null;
+  var toastTimer = null;
 
   var NOT_FOUND = 'We could not find that booking. Check the code and phone number.';
   var TOO_LATE = 'This can no longer be cancelled online. Please call 07063134521.';
@@ -25,7 +27,7 @@
     PENDING_APPROVAL: 'Pending approval',
     APPROVED: 'Approved',
     PAID: 'Paid',
-    PREPARING: 'Preparing',
+    PREPARING: 'Approved', // legacy status, shown on the Approved step
     OUT_FOR_DELIVERY: 'Out for delivery',
     DELIVERED: 'Delivered',
     REJECTED: 'Rejected',
@@ -38,7 +40,7 @@
     CANCELLED: 'Cancelled'
   };
 
-  var ORDER_STEPS = ['Received', 'Approved', 'Preparing', 'Out for delivery', 'Delivered'];
+  var ORDER_STEPS = ['Received', 'Approved', 'Out for delivery'];
 
   function $(id) {
     return document.getElementById(id);
@@ -52,6 +54,7 @@
     ui.error = $('trackError');
     ui.message = $('trackMessage');
     ui.results = $('trackResults');
+    ui.toast = $('trackToast');
   }
 
   function esc(value) {
@@ -137,8 +140,8 @@
     if (status === 'CANCELLED') return 'is-cancelled';
     if (status === 'REJECTED') return 'is-rejected';
     if (status === 'DELIVERED') return 'is-done';
-    if (status === 'PREPARING' || status === 'OUT_FOR_DELIVERY') return 'is-progress';
-    return 'is-approved';
+    if (status === 'OUT_FOR_DELIVERY') return 'is-progress';
+    return 'is-approved'; // includes legacy PREPARING
   }
 
   function reservationPillClass(status) {
@@ -148,10 +151,9 @@
   }
 
   function statusIndex(status) {
-    if (status === 'APPROVED' || status === 'PAID') return 1;
-    if (status === 'PREPARING') return 2;
-    if (status === 'OUT_FOR_DELIVERY') return 3;
-    if (status === 'DELIVERED') return 4;
+    if (status === 'APPROVED' || status === 'PAID' || status === 'PREPARING') return 1;
+    if (status === 'OUT_FOR_DELIVERY') return 2;
+    if (status === 'DELIVERED') return 3; // all three steps done
     return 0; // PENDING_APPROVAL, plus terminal states
   }
 
@@ -180,6 +182,10 @@
       banner = '<div class="track-banner is-cancelled">This order was cancelled.</div>';
     } else if (status === 'REJECTED') {
       banner = '<div class="track-banner is-rejected">This order was rejected. Please call us if you need help.</div>';
+    } else if (status === 'OUT_FOR_DELIVERY') {
+      banner = '<div class="track-banner is-on-the-way">Your order is on the way!</div>';
+    } else if (status === 'DELIVERED') {
+      banner = '<div class="track-banner is-delivered">Delivered</div>';
     }
 
     var items = itemsOf(order.items);
@@ -346,6 +352,55 @@
     ui.message.className = 'order-message';
   }
 
+  function showToast(message) {
+    if (!ui.toast) return;
+    ui.toast.textContent = message;
+    ui.toast.classList.add('is-visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      if (ui.toast) ui.toast.classList.remove('is-visible');
+    }, 4500);
+  }
+
+  // Unlock audio on the Check click so the later auto-refresh chime is
+  // allowed by the browser's autoplay rules.
+  function ensureAudio() {
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return null;
+      if (!audioCtx) audioCtx = new Ctx();
+      if (audioCtx.state === 'suspended') {
+        var resumed = audioCtx.resume();
+        if (resumed && resumed.catch) resumed.catch(function () {});
+      }
+      return audioCtx;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  // A short, quiet chime for the out-for-delivery change.
+  function playShortBeep() {
+    try {
+      var ctx = ensureAudio();
+      if (!ctx) return;
+
+      var now = ctx.currentTime;
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, now);
+      gain.gain.setValueAtTime(0.06, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.2);
+    } catch (err) {
+      /* Sound is best-effort; never break tracking over it. */
+    }
+  }
+
   async function checkBooking(event) {
     if (event) event.preventDefault();
 
@@ -378,6 +433,9 @@
       return;
     }
 
+    ensureAudio();
+    var previousOrderStatus = current && current.code === code && current.phone === phone &&
+      current.order ? current.order.status : null;
     var seq = ++checkSeq;
     setBusy(true, 'Checking…');
     var result = await fetchBooking(code, phone);
@@ -397,6 +455,10 @@
       return;
     }
 
+    var becameOutForDelivery = previousOrderStatus &&
+      previousOrderStatus !== 'OUT_FOR_DELIVERY' &&
+      result.order && result.order.status === 'OUT_FOR_DELIVERY';
+
     current = {
       code: code,
       phone: phone,
@@ -404,6 +466,12 @@
       reservation: result.reservation
     };
     renderResults();
+
+    if (becameOutForDelivery) {
+      showToast('Your order is on the way!');
+      playShortBeep();
+    }
+
     startRefresh();
   }
 
@@ -411,6 +479,7 @@
     if (!current || busy || refreshing) return false;
 
     refreshing = true;
+    var previousOrderStatus = current.order ? current.order.status : null;
     var before = bookingSignature(current.order, current.reservation);
     var result = await fetchBooking(current.code, current.phone);
     refreshing = false;
@@ -418,12 +487,21 @@
     if (result.error) return false;
     if (!result.order && !result.reservation) return false;
 
+    var becameOutForDelivery = previousOrderStatus &&
+      previousOrderStatus !== 'OUT_FOR_DELIVERY' &&
+      result.order && result.order.status === 'OUT_FOR_DELIVERY';
+
     current.order = result.order;
     current.reservation = result.reservation;
 
     if (forceRender ||
         bookingSignature(result.order, result.reservation) !== before) {
       renderResults();
+    }
+
+    if (becameOutForDelivery) {
+      showToast('Your order is on the way!');
+      playShortBeep();
     }
 
     return true;
