@@ -15,16 +15,44 @@
 
   <header class="admin-topbar">
     <div class="admin-brand">Ember &amp; Quill <span>Admin</span></div>
-    <nav class="admin-tabs" aria-label="Admin sections">
+    <nav class="admin-tabs" id="adminTabs" aria-label="Admin sections" hidden>
       <button type="button" data-view="orders" class="active">Orders</button>
       <button type="button" data-view="customers">Customers</button>
       <button type="button" data-view="activity">Activity Log</button>
     </nav>
+    <div class="admin-session" id="adminSession" hidden>
+      <span class="admin-user" id="adminUserEmail"></span>
+      <button type="button" id="signOutBtn" class="admin-signout">Sign out</button>
+    </div>
   </header>
 
-  <div class="admin-banner">Preview with sample data. Backend not connected yet.</div>
+  <div id="liveNote" class="admin-live-note" hidden>
+    <span class="admin-live-dot" aria-hidden="true"></span>Live data
+  </div>
 
-  <main class="admin-main">
+  <div id="bootView" class="admin-boot">Checking session…</div>
+
+  <div id="loginView" class="admin-login" hidden>
+    <div class="admin-login-card">
+      <p class="admin-login-label">Ember &amp; Quill</p>
+      <h1 class="admin-login-title">Admin sign in</h1>
+      <p class="admin-login-text">Sign in with your admin email and password.</p>
+      <form id="loginForm" class="admin-login-form" novalidate>
+        <label class="admin-field">
+          <span>Email</span>
+          <input id="loginEmail" class="admin-input" type="email" name="email" autocomplete="username" required>
+        </label>
+        <label class="admin-field">
+          <span>Password</span>
+          <input id="loginPassword" class="admin-input" type="password" name="password" autocomplete="current-password" required>
+        </label>
+        <div id="loginError" class="admin-login-error" role="alert" hidden></div>
+        <button type="submit" id="loginBtn" class="btn-admin-primary admin-login-submit">Sign in</button>
+      </form>
+    </div>
+  </div>
+
+  <main class="admin-main" id="adminMain" hidden>
 
     <section id="view-orders" class="admin-view active">
       <div class="admin-view-head">
@@ -38,8 +66,7 @@
       <div class="admin-view-head">
         <h1>Customers</h1>
         <div class="admin-view-head-actions">
-          <input id="customerSearch" class="admin-input admin-search" type="search" placeholder="Search name, phone or email" aria-label="Search customers">
-          <button id="addCustomerBtn" type="button" class="btn-admin-primary">+ Add customer</button>
+          <input id="customerSearch" class="admin-input admin-search" type="search" placeholder="Search name or phone" aria-label="Search customers">
         </div>
       </div>
       <div id="customersList" class="admin-list"></div>
@@ -73,6 +100,8 @@
 
   <div id="toast" class="admin-toast" role="status"></div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
+  <script src="supabase-config.js"></script>
   <script src="admin.js"></script>
 </body>
 </html>

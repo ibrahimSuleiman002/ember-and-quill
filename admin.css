@@ -649,10 +649,23 @@ body::after {
   color: #ff5a36;
 }
 
+/* The shared stylesheet positions every <nav> as a fixed site nav.
+   The admin tab bar is a <nav> too, so undo that here. */
 .admin-tabs {
+  position: static;
+  top: auto;
+  right: auto;
+  left: auto;
+  z-index: auto;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
   gap: 8px;
   margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  backdrop-filter: none;
 }
 
 .admin-banner {
@@ -674,5 +687,262 @@ body::after {
   .admin-tabs {
     flex-wrap: wrap;
     gap: 8px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AUTH GATE + LIVE DATA (Supabase)
+   Appended last so these win over the shared stylesheet.
+   ═══════════════════════════════════════════════════════════ */
+
+/* The [hidden] attribute must beat the display rules above */
+[hidden] {
+  display: none !important;
+}
+
+/* ── Signed-in bar ── */
+.admin-session {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.admin-user {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.admin-signout {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 0.45rem 0.8rem;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 36px;
+  white-space: nowrap;
+}
+
+.admin-signout:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.admin-signout:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* ── Live data note (replaces the old sample-data banner) ── */
+.admin-live-note {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 7px 16px;
+  text-align: center;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: #9FC6AE;
+  background: rgba(111, 191, 138, 0.1);
+  border-bottom: 1px solid rgba(111, 191, 138, 0.25);
+}
+
+.admin-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #7FD69F;
+  flex: 0 0 auto;
+}
+
+/* ── Session check / login ── */
+.admin-boot {
+  padding: 3rem 1.25rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.admin-login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 120px);
+  padding: 2rem 1.25rem 3rem;
+}
+
+.admin-login-card {
+  width: 100%;
+  max-width: 420px;
+  background: #0b0d11;
+  border: 1px solid #23262e;
+  border-radius: 12px;
+  padding: 1.75rem;
+}
+
+.admin-login-label {
+  margin: 0 0 0.3rem;
+  color: var(--sage);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.admin-login-title {
+  margin: 0 0 0.4rem;
+  font-family: 'Fraunces', serif;
+  font-size: 1.75rem;
+  line-height: 1.2;
+  color: var(--heading);
+}
+
+.admin-login-text {
+  margin: 0 0 1.25rem;
+  color: var(--muted);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.admin-field {
+  display: block;
+  margin-bottom: 0.9rem;
+}
+
+.admin-field > span {
+  display: block;
+  margin-bottom: 0.3rem;
+  color: var(--sage);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-login-error {
+  margin-bottom: 0.9rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid rgba(255, 90, 54, 0.4);
+  border-radius: 6px;
+  background: rgba(255, 90, 54, 0.12);
+  color: #FF8A70;
+  font-size: 0.875rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.admin-login-submit {
+  width: 100%;
+}
+
+/* ── Inline errors ── */
+.admin-alert {
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.admin-alert strong {
+  display: block;
+  margin-bottom: 0.15rem;
+}
+
+.admin-alert-detail {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.admin-alert .btn-admin-ghost {
+  margin-top: 0.6rem;
+}
+
+.admin-alert-error {
+  border: 1px solid rgba(255, 90, 54, 0.4);
+  background: rgba(255, 90, 54, 0.12);
+  color: #FF8A70;
+}
+
+.admin-alert-error .admin-alert-detail {
+  color: #FFB3A3;
+}
+
+/* ── Customer summaries are read-only ── */
+.admin-static-card {
+  cursor: default;
+}
+
+.admin-static-card:hover {
+  border-color: var(--border);
+}
+
+/* ── Status row + unknown status ── */
+.admin-status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.status-UNKNOWN {
+  background: rgba(169, 184, 176, 0.16);
+  color: #B8BEC4;
+}
+
+/* ── Busy buttons ── */
+.btn-admin-primary:disabled,
+.btn-admin-danger:disabled,
+.btn-admin-ghost:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+@media (max-width: 600px) {
+  .admin-login {
+    padding: 1.5rem 0.9rem 2.5rem;
+    min-height: calc(100vh - 80px);
+  }
+
+  .admin-login-card {
+    padding: 1.35rem;
+  }
+
+  .admin-user {
+    max-width: 120px;
+  }
+
+  /* Brand + Sign out on the first row, tabs across the second */
+  .admin-session {
+    order: 2;
+    gap: 0.5rem;
+  }
+
+  .admin-tabs {
+    order: 3;
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-user {
+    display: none;
   }
 }
