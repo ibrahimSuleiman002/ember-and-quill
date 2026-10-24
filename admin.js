@@ -8,6 +8,9 @@
 //  across refreshes. Customers can only insert orders/reservations.
 //  The activity log is append-only: this page only inserts and
 //  reads it, never edits or deletes rows.
+//  New orders/reservations arrive over Realtime (with a 30s polling
+//  fallback) and raise a top toast, a beep, a tab badge and an
+//  optional browser notification.
 // ═══════════════════════════════════════════════════════════════
 
 const client = (typeof supabaseClient === "undefined") ? null : supabaseClient;
@@ -53,7 +56,12 @@ const state = {
   activityLoading: true,
   activityError: null,
   saving: false,
-  authed: false
+  authed: false,
+  newOrders: 0,
+  newReservations: 0,
+  titleCount: 0,
+  titleLabel: "New order",
+  liveStatus: "connecting"
 };
 
 /* ── Helpers ── */
@@ -202,6 +210,11 @@ function cacheElements() {
   el.userEmail = document.getElementById("adminUserEmail");
   el.signOutBtn = document.getElementById("signOutBtn");
   el.liveNote = document.getElementById("liveNote");
+  el.liveStatus = document.getElementById("liveStatus");
+  el.enableAlerts = document.getElementById("enableAlertsBtn");
+  el.alertStack = document.getElementById("adminAlertStack");
+  el.ordersBadge = document.getElementById("ordersBadge");
+  el.reservationsBadge = document.getElementById("reservationsBadge");
   el.main = document.getElementById("adminMain");
 
   el.filters = document.getElementById("statusFilters");
@@ -269,13 +282,22 @@ function resetDataState() {
 
 function setLoggedOut() {
   state.authed = false;
+  stopRealtime();
+  stopPolling();
   resetDataState();
   state.statusFilter = "ALL";
   state.resFilter = "ALL";
   state.customerSearch = "";
+  state.newOrders = 0;
+  state.newReservations = 0;
+  state.titleCount = 0;
+  state.titleLabel = "New order";
   if (el.customerSearch) el.customerSearch.value = "";
   closePanel();
   closeModal();
+  clearTopAlerts();
+  updateBadges();
+  updateTitle();
   if (el.loginForm) el.loginForm.reset();
   setView("orders");
   showLogin();
@@ -295,6 +317,9 @@ function setAuthed(session) {
   el.liveNote.hidden = false;
   hideLoginError();
   setView("orders");
+  updateAlertsButton();
+  startRealtime();
+  startPolling();
   loadDashboard();
 }
 
@@ -371,12 +396,19 @@ function loadDashboard() {
   return Promise.all([loadOrders(), loadReservations(), loadActivity()]);
 }
 
-async function loadOrders() {
+async function loadOrders(opts) {
   if (!client) return;
-  state.ordersLoading = true;
-  state.ordersError = null;
-  renderOrders();
-  renderCustomers();
+  const silent = !!(opts && opts.silent);
+
+  if (!silent) {
+    state.ordersLoading = true;
+    state.ordersError = null;
+    renderOrders();
+    renderCustomers();
+  }
+
+  let next = null;
+  let error = null;
 
   try {
     const res = await client
@@ -384,15 +416,31 @@ async function loadOrders() {
       .select("id, order_no, customer_name, phone, email, address, items, total, status, created_at")
       .order("created_at", { ascending: false, nullsFirst: false });
 
-    if (res.error) {
-      state.ordersError = res.error;
-      state.orders = [];
-    } else {
-      state.orders = res.data || [];
-    }
+    if (res.error) error = res.error;
+    else next = res.data || [];
   } catch (err) {
-    state.ordersError = err;
+    error = err;
+  }
+
+  // Silent refreshes (polling / realtime catch-up) must never blank the
+  // list or interrupt the admin — only repaint when the data changed.
+  if (silent) {
+    if (error || !next) return;
+    if (ordersSignature(next) === ordersSignature(state.orders)) return;
+    state.orders = next;
+    state.ordersLoading = false;
+    state.ordersError = null;
+    renderOrders();
+    renderCustomers();
+    renderActivity();
+    return;
+  }
+
+  if (error) {
+    state.ordersError = error;
     state.orders = [];
+  } else {
+    state.orders = next || [];
   }
 
   state.ordersLoading = false;
@@ -401,11 +449,18 @@ async function loadOrders() {
   renderActivity();
 }
 
-async function loadReservations() {
+async function loadReservations(opts) {
   if (!client) return;
-  state.resLoading = true;
-  state.resError = null;
-  renderReservations();
+  const silent = !!(opts && opts.silent);
+
+  if (!silent) {
+    state.resLoading = true;
+    state.resError = null;
+    renderReservations();
+  }
+
+  let next = null;
+  let error = null;
 
   try {
     const res = await client
@@ -413,15 +468,28 @@ async function loadReservations() {
       .select("id, customer_name, phone, email, party_size, reservation_date, reservation_time, notes, status, created_at")
       .order("created_at", { ascending: false, nullsFirst: false });
 
-    if (res.error) {
-      state.resError = res.error;
-      state.reservations = [];
-    } else {
-      state.reservations = res.data || [];
-    }
+    if (res.error) error = res.error;
+    else next = res.data || [];
   } catch (err) {
-    state.resError = err;
+    error = err;
+  }
+
+  if (silent) {
+    if (error || !next) return;
+    if (reservationsSignature(next) === reservationsSignature(state.reservations)) return;
+    state.reservations = next;
+    state.resLoading = false;
+    state.resError = null;
+    renderReservations();
+    renderActivity();
+    return;
+  }
+
+  if (error) {
+    state.resError = error;
     state.reservations = [];
+  } else {
+    state.reservations = next || [];
   }
 
   state.resLoading = false;
@@ -731,6 +799,9 @@ function renderAll() {
 function setView(view) {
   state.view = view;
   closePanel();
+  if (view === "orders") state.newOrders = 0;
+  if (view === "reservations") state.newReservations = 0;
+  updateBadges();
   document.querySelectorAll(".admin-tabs button").forEach(function (b) {
     b.classList.toggle("active", b.getAttribute("data-view") === view);
   });
@@ -1001,6 +1072,305 @@ function toast(msg) {
   }, 3500);
 }
 
+/* ── Live new-order alerts (Realtime + 30s polling fallback) ── */
+const BASE_TITLE = "Admin — Ember & Quill";
+const LIVE_LABELS = {
+  connecting: "Connecting…",
+  live: "Live",
+  reconnecting: "Reconnecting…"
+};
+const POLL_MS = 30000;
+const ALERT_DISMISS_MS = 8000;
+
+let channel = null;
+let pollTimer = null;
+let titleTimer = null;
+let titleFlashOn = false;
+let audioCtx = null;
+
+// Cheap change detectors so a 30s poll never repaints (or steals focus)
+// unless the underlying rows actually changed.
+function ordersSignature(rows) {
+  return (rows || []).map(function (o) {
+    return [o.id, o.order_no, o.customer_name, o.phone, o.total, o.status].join("|");
+  }).join("~");
+}
+
+function reservationsSignature(rows) {
+  return (rows || []).map(function (r) {
+    return [r.id, r.customer_name, r.phone, r.party_size, r.reservation_date,
+      r.reservation_time, r.notes, r.status].join("|");
+  }).join("~");
+}
+
+function setLiveStatus(kind) {
+  state.liveStatus = kind;
+  if (!el.liveStatus) return;
+  el.liveStatus.textContent = LIVE_LABELS[kind] || kind;
+  el.liveStatus.className = "admin-live-status is-" + kind;
+}
+
+function updateBadges() {
+  if (el.ordersBadge) {
+    el.ordersBadge.textContent = String(state.newOrders);
+    el.ordersBadge.hidden = state.newOrders <= 0;
+  }
+  if (el.reservationsBadge) {
+    el.reservationsBadge.textContent = String(state.newReservations);
+    el.reservationsBadge.hidden = state.newReservations <= 0;
+  }
+}
+
+function alertTitleText() {
+  return "(" + state.titleCount + ") " + state.titleLabel + " - Ember & Quill Admin";
+}
+
+function updateTitle() {
+  const shouldFlash = state.titleCount > 0 && document.visibilityState === "hidden";
+
+  if (!shouldFlash) {
+    if (titleTimer) {
+      clearInterval(titleTimer);
+      titleTimer = null;
+    }
+    titleFlashOn = false;
+    document.title = BASE_TITLE;
+    return;
+  }
+
+  if (titleTimer) return;
+  titleFlashOn = true;
+  document.title = alertTitleText();
+  titleTimer = setInterval(function () {
+    titleFlashOn = !titleFlashOn;
+    document.title = titleFlashOn ? alertTitleText() : BASE_TITLE;
+  }, 1000);
+}
+
+function handleVisibilityChange() {
+  // Back on the page: stop flashing and clear the unread title count.
+  // Tab badges stay until their tab is actually opened.
+  if (document.visibilityState === "visible") state.titleCount = 0;
+  updateTitle();
+}
+
+/* Sound — a short two-tone beep, generated locally (no audio file). */
+function ensureAudio() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    if (!audioCtx) audioCtx = new Ctx();
+    if (audioCtx.state === "suspended") {
+      const p = audioCtx.resume();
+      if (p && p.catch) p.catch(function () {});
+    }
+    return audioCtx;
+  } catch (err) {
+    return null;
+  }
+}
+
+function playBeep() {
+  const ctx = ensureAudio();
+  if (!ctx) return;
+  try {
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(880, now);
+    osc.frequency.setValueAtTime(1174.66, now + 0.11);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.16, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.32);
+  } catch (err) {
+    /* Sound is best-effort; never break an alert over it. */
+  }
+}
+
+/* Browser notifications */
+function updateAlertsButton() {
+  if (!el.enableAlerts) return;
+  const supported = "Notification" in window;
+  el.enableAlerts.hidden = !supported || Notification.permission !== "default";
+}
+
+async function handleEnableAlerts() {
+  if (!("Notification" in window)) {
+    toast("This browser does not support notifications.");
+    return;
+  }
+  let permission = "denied";
+  try {
+    permission = await Notification.requestPermission();
+  } catch (err) {
+    /* ignore */
+  }
+  updateAlertsButton();
+  if (permission === "granted") toast("Browser alerts enabled.");
+  else if (permission === "denied") toast("Browser alerts are blocked in your browser settings.");
+}
+
+function showSystemNotification(title, body) {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  try {
+    new Notification(title, { body: body, icon: "og-image.jpg" });
+  } catch (err) {
+    /* Some browsers only allow this via a service worker. */
+  }
+}
+
+/* In-page toast stack at the top */
+function positionAlertStack() {
+  if (!el.alertStack) return;
+  const bar = document.querySelector(".admin-topbar");
+  const note = el.liveNote && !el.liveNote.hidden ? el.liveNote : null;
+  const height = (bar ? bar.getBoundingClientRect().height : 0) +
+    (note ? note.getBoundingClientRect().height : 0);
+  el.alertStack.style.top = Math.max(8, Math.round(height + 8)) + "px";
+}
+
+function dismissAlert(btn) {
+  if (!btn) return;
+  if (btn.__timer) {
+    clearTimeout(btn.__timer);
+    btn.__timer = null;
+  }
+  if (btn.parentNode) btn.parentNode.removeChild(btn);
+}
+
+function clearTopAlerts() {
+  if (el.alertStack) el.alertStack.innerHTML = "";
+}
+
+function showTopAlert(view, message) {
+  if (!el.alertStack) return;
+  positionAlertStack();
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "admin-alert-toast";
+  btn.setAttribute("data-view", view);
+  btn.textContent = message;
+  btn.addEventListener("click", function () {
+    setView(view);
+    dismissAlert(btn);
+  });
+
+  el.alertStack.appendChild(btn);
+  while (el.alertStack.children.length > 4) {
+    dismissAlert(el.alertStack.firstChild);
+  }
+  btn.__timer = setTimeout(function () { dismissAlert(btn); }, ALERT_DISMISS_MS);
+}
+
+function handleNewOrder(row) {
+  if (!row) return;
+  const name = row.customer_name || "a customer";
+  const message = "New order " + orderLabel(row) + " from " + name + ", " + money(row.total);
+
+  playBeep();
+  showTopAlert("orders", message);
+  showSystemNotification("New order " + orderLabel(row), name + ", " + money(row.total));
+
+  if (state.view !== "orders") {
+    state.newOrders += 1;
+    updateBadges();
+  }
+  if (document.visibilityState === "hidden") {
+    state.titleCount += 1;
+    state.titleLabel = "New order";
+    updateTitle();
+  }
+
+  // Pull the authoritative row/order in, not just the payload.
+  loadOrders({ silent: true });
+}
+
+function handleNewReservation(row) {
+  if (!row) return;
+  const name = row.customer_name || "a guest";
+  const party = Number(row.party_size) || 0;
+  const message = "New reservation from " + name + ", party of " + party;
+
+  playBeep();
+  showTopAlert("reservations", message);
+  showSystemNotification("New reservation", name + ", party of " + party);
+
+  if (state.view !== "reservations") {
+    state.newReservations += 1;
+    updateBadges();
+  }
+  if (document.visibilityState === "hidden") {
+    state.titleCount += 1;
+    state.titleLabel = "New reservation";
+    updateTitle();
+  }
+
+  loadReservations({ silent: true });
+}
+
+function startRealtime() {
+  if (!client || channel) return;
+  setLiveStatus("connecting");
+
+  try {
+    channel = client
+      .channel("admin-live-alerts-" + Date.now())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "orders" }, function (payload) {
+        handleNewOrder(payload.new);
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "reservations" }, function (payload) {
+        handleNewReservation(payload.new);
+      })
+      .subscribe(function (status) {
+        if (status === "SUBSCRIBED") {
+          setLiveStatus("live");
+          // Catch anything that arrived while (re)connecting.
+          loadOrders({ silent: true });
+          loadReservations({ silent: true });
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          setLiveStatus("reconnecting");
+        }
+      });
+  } catch (err) {
+    channel = null;
+    setLiveStatus("reconnecting");
+  }
+}
+
+function stopRealtime() {
+  if (channel && client) {
+    try {
+      client.removeChannel(channel);
+    } catch (err) {
+      /* ignore */
+    }
+  }
+  channel = null;
+  setLiveStatus("connecting");
+}
+
+function startPolling() {
+  stopPolling();
+  pollTimer = setInterval(function () {
+    if (!state.authed) return;
+    loadOrders({ silent: true });
+    loadReservations({ silent: true });
+  }, POLL_MS);
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
 /* ── Boot & wiring ── */
 async function boot() {
   if (!client) {
@@ -1034,6 +1404,16 @@ function init() {
 
   el.loginForm.addEventListener("submit", handleLogin);
   el.signOutBtn.addEventListener("click", handleSignOut);
+
+  if (el.enableAlerts) el.enableAlerts.addEventListener("click", handleEnableAlerts);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+  window.addEventListener("resize", positionAlertStack);
+  // Browsers only allow audio after a gesture; unlock it on the first one.
+  document.addEventListener("pointerdown", function () { ensureAudio(); }, { once: true });
+
+  updateBadges();
+  updateAlertsButton();
+  updateTitle();
 
   document.querySelectorAll(".admin-tabs button").forEach(function (btn) {
     btn.addEventListener("click", function () {

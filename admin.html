@@ -16,8 +16,8 @@
   <header class="admin-topbar">
     <div class="admin-brand">Ember &amp; Quill <span>Admin</span></div>
     <nav class="admin-tabs" id="adminTabs" aria-label="Admin sections" hidden>
-      <button type="button" data-view="orders" class="active">Orders</button>
-      <button type="button" data-view="reservations">Reservations</button>
+      <button type="button" data-view="orders" class="active">Orders <span class="tab-badge" id="ordersBadge" hidden>0</span></button>
+      <button type="button" data-view="reservations">Reservations <span class="tab-badge" id="reservationsBadge" hidden>0</span></button>
       <button type="button" data-view="customers">Customers</button>
       <button type="button" data-view="activity">Activity Log</button>
     </nav>
@@ -28,8 +28,13 @@
   </header>
 
   <div id="liveNote" class="admin-live-note" hidden>
-    <span class="admin-live-dot" aria-hidden="true"></span>Live data
+    <span class="admin-live-dot" aria-hidden="true"></span>
+    <span>Live data</span>
+    <span id="liveStatus" class="admin-live-status is-connecting" role="status">Connecting…</span>
+    <button type="button" id="enableAlertsBtn" class="admin-enable-alerts" hidden>Enable alerts</button>
   </div>
+
+  <div id="adminAlertStack" class="admin-alert-stack" aria-live="polite"></div>
 
   <div id="bootView" class="admin-boot">Checking session…</div>
 
