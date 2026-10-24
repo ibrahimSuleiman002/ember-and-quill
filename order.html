@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Online — Ember &amp; Quill</title>
+  <meta name="description" content="Order Ember &amp; Quill online. Choose your dishes, add your delivery details, and we'll confirm your order shortly.">
+  <meta property="og:title" content="Order Online — Ember & Quill">
+  <meta property="og:description" content="Choose your dishes and place your order online.">
+  <meta property="og:image" content="https://ember-and-quill.vercel.app/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://ember-and-quill.vercel.app/order.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Order Online — Ember & Quill">
+  <meta name="twitter:description" content="Choose your dishes and place your order online.">
+  <meta name="twitter:image" content="https://ember-and-quill.vercel.app/og-image.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Instrument+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="order">
+
+  <div id="nav-mount"></div>
+
+  <main class="page-content">
+
+    <!-- Intro -->
+    <section>
+      <div class="text-panel" style="text-align:center;">
+        <p class="section-label">Order Online</p>
+        <h1 class="section-title">Place Your Order</h1>
+        <p class="section-text">Pick your dishes below, tell us where to bring them, and we'll confirm your order shortly.</p>
+      </div>
+    </section>
+
+    <!-- 1. Menu with quantity pickers -->
+    <section id="order-menu">
+      <div class="order-section-head">
+        <h2 class="section-title">1. Choose your dishes</h2>
+        <p class="section-text">Use the − and + buttons to set how many of each dish you'd like.</p>
+      </div>
+      <div id="orderMenu"></div>
+    </section>
+
+    <!-- 2. Customer details + order summary -->
+    <section id="order-details">
+      <div class="text-panel">
+        <h2 class="section-title">2. Your details</h2>
+
+        <form id="orderForm" class="order-form" novalidate>
+          <div class="order-fields">
+            <div class="order-field">
+              <label for="orderName">Full name</label>
+              <input class="order-input" id="orderName" name="name" type="text" autocomplete="name" placeholder="e.g. Ada Obi" required>
+            </div>
+            <div class="order-field">
+              <label for="orderPhone">Phone number</label>
+              <input class="order-input" id="orderPhone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="e.g. 0803 123 4567" required>
+            </div>
+            <div class="order-field">
+              <label for="orderEmail">Email <span class="order-optional">(optional)</span></label>
+              <input class="order-input" id="orderEmail" name="email" type="email" autocomplete="email" placeholder="you@example.com">
+            </div>
+            <div class="order-field full">
+              <label for="orderAddress">Delivery address</label>
+              <input class="order-input" id="orderAddress" name="address" type="text" autocomplete="street-address" placeholder="Street, area, city" required>
+            </div>
+          </div>
+
+          <div class="order-summary-wrap">
+            <h3 class="order-summary-title">Your order <span class="order-count" id="orderCount">0</span></h3>
+            <div class="order-summary" id="orderSummary" aria-live="polite"></div>
+            <div class="order-total-row">
+              <span>Total</span>
+              <span class="order-total-amount" id="orderTotal">₦0</span>
+            </div>
+          </div>
+
+          <div id="orderError" class="order-message order-error" role="alert" hidden></div>
+          <div id="orderSuccess" class="order-message order-success" role="status" tabindex="-1" hidden>Order received. We will confirm it shortly.</div>
+
+          <button type="submit" id="placeOrderBtn" class="btn btn-primary order-submit">Place Order</button>
+          <p class="order-note">No payment details needed — we confirm every order before delivery. We never ask for card numbers or CVV.</p>
+        </form>
+      </div>
+    </section>
+
+  </main>
+
+  <div id="footer-mount"></div>
+
+  <!-- supabase-js v2 (jsDelivr) → site data → Supabase config → order logic -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
+  <script src="menu.js"></script>
+  <script src="site.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="order.js"></script>
+</body>
+</html>

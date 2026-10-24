@@ -12,9 +12,6 @@ function renderNav(activePage) {
     { href: 'contact.html', label: 'Contact', key: 'contact' }
   ];
 
-  const orderMsg = encodeURIComponent("Hello, I'd like to place an order.");
-  const waNumber = siteConfig.phoneIntl.replace('+', '');
-
   const linksHTML = pages.map(p =>
     `<li><a href="${p.href}" class="${p.key === activePage ? 'active' : ''}">${p.label}</a></li>`
   ).join('');
@@ -29,7 +26,7 @@ function renderNav(activePage) {
       </button>
       <ul class="nav-links" id="navLinks">
         ${linksHTML}
-        <li><a href="https://wa.me/${waNumber}?text=${orderMsg}" target="_blank" rel="noopener" class="nav-order">Order Online</a></li>
+        <li><a href="order.html" class="nav-order">Order Online</a></li>
         <li><a href="reservations.html" class="nav-reserve">Reserve</a></li>
       </ul>
     </nav>
