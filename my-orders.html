@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Orders — Ember &amp; Quill</title>
+  <meta name="description" content="See your Ember &amp; Quill orders and reservations, follow delivery progress, and cancel a booking.">
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Instrument+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="my-orders">
+
+  <div id="nav-mount"></div>
+
+  <main class="page-content">
+
+    <section>
+      <div class="text-panel track-page-panel">
+        <p class="section-label">Your Account</p>
+        <h1 class="section-title">My Orders</h1>
+        <p class="section-text">Follow your orders and reservations below. Everything here belongs to your account only.</p>
+
+        <div id="myOrdersMessage" class="order-message" role="status" aria-live="polite" hidden></div>
+
+        <div id="myOrdersGate" class="my-orders-gate" hidden>
+          <p>Log in or create an account to see your orders and reservations.</p>
+          <button type="button" id="myOrdersLogin" class="btn btn-primary">Log in</button>
+        </div>
+
+        <p id="myOrdersLoading" class="track-help" role="status" hidden>Loading your orders…</p>
+
+        <div id="myOrdersList" class="track-results" aria-live="polite"></div>
+
+        <p class="track-help">
+          Need help with a booking? Call <a href="tel:+2347063134521">07063134521</a>.
+        </p>
+      </div>
+    </section>
+
+  </main>
+
+  <div id="footer-mount"></div>
+
+  <div class="acct-backdrop" id="cancelDialog" hidden>
+    <div class="acct-card is-confirm" role="alertdialog" aria-modal="true" aria-labelledby="cancelDialogTitle" aria-describedby="cancelDialogBody">
+      <h2 class="acct-title" id="cancelDialogTitle">Cancel this order?</h2>
+      <p class="acct-confirm-text" id="cancelDialogBody">Are you sure you want to cancel?</p>
+      <div class="acct-actions">
+        <button type="button" class="btn btn-outline" id="cancelDialogNo">No, keep it</button>
+        <button type="button" class="btn btn-danger" id="cancelDialogYes">Yes, cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="myOrdersToast" class="track-toast" role="status" aria-live="polite"></div>
+
+  <!-- supabase-js v2 (jsDelivr) → site data → Supabase config → customer accounts → my orders -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
+  <script src="menu.js"></script>
+  <script src="site.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="auth.js"></script>
+  <script src="my-orders.js"></script>
+</body>
+</html>

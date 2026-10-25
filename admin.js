@@ -300,6 +300,12 @@ function cacheElements() {
 }
 
 /* ── Auth gate ── */
+
+// A session is only trusted once is_admin() confirms it. While that
+// check is running, the onAuthStateChange handler below stays quiet so a
+// customer session can never paint the dashboard even for a moment.
+let authCheckInProgress = false;
+
 function showLoginError(message, field) {
   if (!el.loginError) return;
   el.loginError.textContent = message;
@@ -388,6 +394,41 @@ function setLoginBusy(busy) {
   el.loginBtn.setAttribute("aria-busy", busy ? "true" : "false");
 }
 
+// The database decides who is an admin. Anything other than a literal
+// `true` (false, no row, a missing function, a network error) is denied.
+async function verifyAdminAccess() {
+  try {
+    const res = await client.rpc("is_admin");
+    return !res.error && res.data === true;
+  } catch (err) {
+    return false;
+  }
+}
+
+async function denyNonAdmin() {
+  // Drop the session first so a refresh cannot slip them into the
+  // dashboard, then put the login screen back with the reason.
+  try {
+    await client.auth.signOut();
+  } catch (err) {
+    /* Ignore — setLoggedOut still clears this page below. */
+  }
+  setLoggedOut();
+  showLogin("This account is not an admin account.");
+}
+
+async function verifyAndEnter(session) {
+  if (authCheckInProgress) return;
+  authCheckInProgress = true;
+
+  try {
+    if (await verifyAdminAccess()) setAuthed(session);
+    else await denyNonAdmin();
+  } finally {
+    authCheckInProgress = false;
+  }
+}
+
 function loginErrorMessage(err) {
   const msg = (err && (err.message || err.error_description)) || "";
   const lower = msg.toLowerCase();
@@ -418,9 +459,8 @@ async function handleLogin(event) {
   } catch (err) {
     result = { error: err };
   }
-  setLoginBusy(false);
-
   if (result.error) {
+    setLoginBusy(false);
     showLoginError(loginErrorMessage(result.error));
     el.loginPassword.value = "";
     el.loginPassword.focus();
@@ -428,7 +468,15 @@ async function handleLogin(event) {
   }
 
   el.loginPassword.value = "";
-  if (result.data && result.data.session) setAuthed(result.data.session);
+
+  const session = result.data && result.data.session ? result.data.session : null;
+  if (!session) {
+    setLoginBusy(false);
+    return;
+  }
+
+  await verifyAndEnter(session);
+  setLoginBusy(false);
 }
 
 async function handleSignOut() {
@@ -1669,9 +1717,12 @@ async function boot() {
     return;
   }
 
-  client.auth.onAuthStateChange(function (_event, session) {
+  client.auth.onAuthStateChange(function (event, session) {
+    // boot() below checks the session it restores itself.
+    if (event === "INITIAL_SESSION" || authCheckInProgress) return;
+
     if (session) {
-      if (!state.authed) setAuthed(session);
+      if (!state.authed) verifyAndEnter(session);
     } else if (state.authed) {
       setLoggedOut();
     }
@@ -1686,7 +1737,7 @@ async function boot() {
     return;
   }
 
-  if (session) setAuthed(session);
+  if (session) await verifyAndEnter(session);
   else showLogin();
 }
 

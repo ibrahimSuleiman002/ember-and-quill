@@ -44,8 +44,7 @@ function renderFooter() {
           <li><a href="menu.html">Menu</a></li>
           <li><a href="gallery.html">Gallery</a></li>
           <li><a href="reservations.html">Reservations</a></li>
-          <li><a href="track.html">Track order</a></li>
-          <li><a href="cancel.html">Cancel order</a></li>
+          <li><a href="my-orders.html" data-requires-auth>My orders</a></li>
           <li><a href="contact.html">Contact</a></li>
           <li><a href="privacy.html">Privacy Policy</a></li>
         </ul>
@@ -80,6 +79,12 @@ function initChrome(activePage) {
 
   const copy = document.getElementById('footerCopy');
   if (copy) copy.innerHTML = `&copy; ${new Date().getFullYear()} ${siteConfig.name}. All rights reserved. | ${siteConfig.phone}`;
+
+  // Customer account block: nothing for visitors, "Hi, <name> / My orders /
+  // Log out" once auth.js has restored a session.
+  if (window.authUI && typeof window.authUI.mountHeader === 'function') {
+    window.authUI.mountHeader();
+  }
 
   // Hamburger
   const hamburger = document.getElementById('hamburger');

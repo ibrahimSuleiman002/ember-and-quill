@@ -82,17 +82,6 @@
           <div id="orderError" class="order-message order-error" role="alert" hidden></div>
           <div id="orderSuccess" class="order-message order-success" role="status" tabindex="-1" hidden>
             <p class="order-success-text">Order received. We will confirm it shortly.</p>
-            <div id="orderTracking" class="tracking-code-box" hidden>
-              <p class="tracking-code-label">Your tracking code</p>
-              <p class="tracking-code" id="orderTrackingCode"></p>
-              <div class="tracking-code-actions">
-                <button type="button" id="copyOrderCode" class="btn btn-outline tracking-copy">Copy</button>
-                <a href="track.html" class="btn btn-primary tracking-track-link">Track order</a>
-                <a href="cancel.html" class="btn btn-outline tracking-track-link">Cancel order</a>
-              </div>
-              <p class="tracking-note">Save this code. You need it with your phone number to track or cancel</p>
-              <p class="tracking-note">Once payment is made, an order cannot be cancelled.</p>
-            </div>
           </div>
 
           <button type="submit" id="placeOrderBtn" class="btn btn-primary order-submit">Place Order</button>
@@ -105,12 +94,12 @@
 
   <div id="footer-mount"></div>
 
-  <!-- supabase-js v2 (jsDelivr) → site data → Supabase config → tracking helpers → order logic -->
+  <!-- supabase-js v2 (jsDelivr) → site data → Supabase config → customer accounts → order logic -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="menu.js"></script>
   <script src="site.js"></script>
   <script src="supabase-config.js"></script>
-  <script src="tracking-code.js"></script>
+  <script src="auth.js"></script>
   <script src="order.js"></script>
 </body>
 </html>

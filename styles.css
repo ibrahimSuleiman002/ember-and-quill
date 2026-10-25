@@ -161,6 +161,45 @@ nav {
   color: var(--accent) !important;
 }
 
+/* Customer account (only rendered once a session exists) */
+.nav-account {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-left: 1rem;
+  border-left: 1px solid var(--border);
+}
+
+.nav-greeting {
+  color: var(--sage);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.nav-account a,
+.nav-logout {
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.nav-logout {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.nav-account a:hover,
+.nav-logout:hover {
+  color: var(--accent);
+}
+
 /* Hamburger — hidden on desktop */
 .hamburger {
   display: none;
@@ -1478,3 +1517,323 @@ footer {
     padding: 1rem;
   }
 }
+
+@media (max-width: 767px) {
+  .nav-account {
+    flex-direction: column;
+    gap: 1.75rem;
+    padding-left: 0;
+    border-left: none;
+  }
+
+  .nav-greeting,
+  .nav-account a,
+  .nav-logout {
+    font-size: 1.125rem;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CUSTOMER ACCOUNTS — login box, confirm dialog, my orders
+   ═══════════════════════════════════════════════════════════ */
+
+body.acct-lock {
+  overflow: hidden;
+}
+
+.acct-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  overflow-y: auto;
+  background-color: rgba(5, 3, 2, 0.8);
+  backdrop-filter: blur(4px);
+}
+
+.acct-backdrop[hidden] {
+  display: none;
+}
+
+.acct-card {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  margin: auto;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background-color: #140E09;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+
+.acct-close {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.75rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.acct-close:hover {
+  color: var(--heading);
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.acct-brand {
+  margin: 0 0 0.25rem;
+  padding-right: 2.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--sage);
+}
+
+.acct-title {
+  margin: 0;
+  font-family: 'Fraunces', serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--heading);
+}
+
+.acct-reason {
+  margin: 0.85rem 0 0;
+  padding: 0.6rem 0.75rem;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 4px 4px 0;
+  background-color: rgba(255, 90, 54, 0.1);
+  color: #FFD1C5;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.acct-reason[hidden] {
+  display: none;
+}
+
+.acct-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin: 1.1rem 0 1rem;
+  padding: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.acct-tab {
+  flex: 1 1 0;
+  min-height: 44px;
+  padding: 0.55rem 0.5rem;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.acct-tab:hover {
+  color: var(--heading);
+}
+
+.acct-tab.is-active {
+  background-color: var(--accent);
+  color: #1A0F08;
+}
+
+.acct-form .order-field {
+  margin-bottom: 0.8rem;
+}
+
+.acct-form .order-field:last-of-type {
+  margin-bottom: 1rem;
+}
+
+.acct-submit {
+  width: 100%;
+}
+
+.acct-submit:disabled {
+  opacity: 0.7;
+  cursor: wait;
+  transform: none;
+}
+
+.acct-note {
+  margin: 1rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--muted);
+  text-align: center;
+}
+
+#acctMessage {
+  margin-top: 0.25rem;
+}
+
+.acct-card.is-confirm {
+  max-width: 420px;
+  text-align: center;
+}
+
+.acct-confirm-text {
+  margin: 0.85rem 0 0;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.acct-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+}
+
+.acct-actions .btn {
+  flex: 1 1 140px;
+  padding: 0.75rem 1rem;
+  font-size: 0.9375rem;
+}
+
+.btn-danger {
+  background-color: transparent;
+  border: 1px solid rgba(255, 90, 54, 0.6);
+  color: #FF8A70;
+}
+
+.btn-danger:hover {
+  background-color: rgba(255, 90, 54, 0.14);
+  border-color: #FF8A70;
+  transform: none;
+}
+
+/* My orders page */
+.my-orders-gate {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  margin-top: 1.25rem;
+  padding: 1.25rem;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background-color: rgba(10, 7, 5, 0.6);
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.my-orders-gate[hidden] {
+  display: none;
+}
+
+.my-orders-gate .btn {
+  align-self: flex-start;
+}
+
+.my-orders-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.my-orders-head h2 {
+  margin: 0;
+  font-family: 'Fraunces', serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--heading);
+}
+
+.my-order-date {
+  margin: 0.15rem 0 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.my-order-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.my-order-actions .btn {
+  padding: 0.7rem 1.25rem;
+  font-size: 0.9375rem;
+}
+
+.track-banner.is-on-the-way,
+.track-banner.is-delivered {
+  background-color: rgba(111, 191, 138, 0.16);
+  border: 1px solid rgba(111, 191, 138, 0.5);
+  color: #7FD69F;
+}
+
+.track-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  z-index: 3500;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: calc(100vw - 2rem);
+  padding: 0.8rem 1.1rem;
+  border-radius: 8px;
+  border: 1px solid rgba(127, 214, 159, 0.5);
+  background-color: #102016;
+  color: #7FD69F;
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transform: translate(-50%, 0.75rem);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.track-toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+@media (max-width: 600px) {
+  .acct-card {
+    padding: 1.25rem;
+  }
+
+  .my-order-actions .btn {
+    width: 100%;
+  }
+}
+

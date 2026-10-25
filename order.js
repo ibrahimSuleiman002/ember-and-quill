@@ -1,12 +1,14 @@
 // ═══════════════════════════════════════════════════════════════
 //  order.js — customer order flow
-//  Renders the menu with quantity pickers, keeps a small in-memory
-//  cart, then INSERTs one row into public.orders.
-//  Customers can only insert — we never read the row back.
+//  Renders the menu with quantity pickers, keeps the cart in
+//  localStorage (so it survives the login box), then INSERTs one
+//  row into public.orders. `user_id` is filled in by the database.
 // ═══════════════════════════════════════════════════════════════
 
 (function () {
   'use strict';
+
+  var CART_KEY = 'eq_cart_v1';
 
   // Cart lines: { name, price, qty }
   var cart = [];
@@ -29,9 +31,6 @@
     ui.submit = $('placeOrderBtn');
     ui.error = $('orderError');
     ui.success = $('orderSuccess');
-    ui.tracking = $('orderTracking');
-    ui.trackingCode = $('orderTrackingCode');
-    ui.copyCode = $('copyOrderCode');
   }
 
   function esc(value) {
@@ -83,6 +82,56 @@
     return null;
   }
 
+  // The cart lives in localStorage so it survives the login box, a
+  // page refresh, or a visit to another page.
+  function loadCart() {
+    var saved;
+
+    try {
+      saved = JSON.parse(window.localStorage.getItem(CART_KEY) || '[]');
+    } catch (err) {
+      return [];
+    }
+
+    if (!Array.isArray(saved)) return [];
+
+    var restored = [];
+    saved.forEach(function (entry) {
+      if (!entry || typeof entry.name !== 'string') return;
+
+      var item = menuItemByName(entry.name);
+      if (!item) return;
+
+      var qty = Math.floor(Number(entry.qty));
+      if (!isFinite(qty) || qty < 1) return;
+
+      restored.push({
+        name: item.name,
+        price: item.price,
+        qty: Math.min(qty, 99)
+      });
+    });
+
+    return restored;
+  }
+
+  function saveCart() {
+    try {
+      window.localStorage.setItem(CART_KEY, JSON.stringify(cartLines()));
+    } catch (err) {
+      /* Private browsing can block storage — the in-memory cart still works. */
+    }
+  }
+
+  function clearCart() {
+    cart = [];
+    try {
+      window.localStorage.removeItem(CART_KEY);
+    } catch (err) {
+      /* ignore */
+    }
+  }
+
   function changeQty(name, delta) {
     var item = menuItemByName(name);
     if (!item) return;
@@ -101,6 +150,7 @@
       }
     }
 
+    saveCart();
     hideMessages();
     renderCart();
     renderMenuQuantities();
@@ -198,38 +248,15 @@
     if (field && typeof field.focus === 'function') field.focus();
   }
 
-  function showSuccess(trackingCode) {
+  function showSuccess() {
     if (ui.error) {
       ui.error.hidden = true;
       ui.error.textContent = '';
     }
     if (!ui.success) return;
 
-    if (ui.trackingCode) ui.trackingCode.textContent = trackingCode || '';
-    if (ui.tracking) ui.tracking.hidden = !trackingCode;
-    if (ui.copyCode) ui.copyCode.textContent = 'Copy';
-
     ui.success.hidden = false;
     if (typeof ui.success.focus === 'function') ui.success.focus();
-  }
-
-  function copyCode() {
-    var code = ui.trackingCode ? ui.trackingCode.textContent : '';
-    if (!code || typeof copyToClipboard !== 'function') return;
-
-    copyToClipboard(code).then(function () {
-      if (!ui.copyCode) return;
-      ui.copyCode.textContent = 'Copied';
-      setTimeout(function () {
-        if (ui.copyCode) ui.copyCode.textContent = 'Copy';
-      }, 2000);
-    }).catch(function () {
-      if (!ui.copyCode) return;
-      ui.copyCode.textContent = 'Copy failed';
-      setTimeout(function () {
-        if (ui.copyCode) ui.copyCode.textContent = 'Copy';
-      }, 2000);
-    });
   }
 
   function setSubmitting(isSubmitting) {
@@ -279,10 +306,41 @@
     return null;
   }
 
+  // ── Account prefill ──
+
+  async function prefillFromProfile(onlyEmpty) {
+    if (typeof authUI === 'undefined' || !authUI) return;
+
+    var saved;
+
+    try {
+      saved = await authUI.getProfile();
+    } catch (err) {
+      return;
+    }
+
+    if (!saved) return;
+
+    function fill(input, value) {
+      if (!input || !value) return;
+      if (onlyEmpty && input.value.trim()) return;
+      input.value = value;
+    }
+
+    fill(ui.name, saved.full_name);
+    fill(ui.phone, saved.phone);
+    fill(ui.email, saved.email);
+    fill(ui.address, saved.address);
+  }
+
   // ── Submit ──
 
-  async function placeOrder(event) {
-    event.preventDefault();
+  async function continueOrder() {
+    await prefillFromProfile(false);
+    await sendOrder();
+  }
+
+  async function sendOrder() {
     hideMessages();
 
     var values = readForm();
@@ -299,25 +357,18 @@
 
     setSubmitting(true);
 
-    // Generated in the browser and stored with the order. The customer
-    // needs this code plus their phone number to track or cancel later.
-    var trackingCode = typeof generateTrackingCode === 'function'
-      ? generateTrackingCode()
-      : '';
-
     var error = null;
     try {
       // Insert only — no .select(), so the customer never reads the row back.
-      // `status` is intentionally omitted so the column default
-      // (PENDING_APPROVAL) applies.
+      // `user_id` and `status` are intentionally omitted: the database fills
+      // the owner from the session and defaults the status to PENDING_APPROVAL.
       var result = await supabaseClient.from('orders').insert({
         customer_name: values.name,
         phone: values.phone,
         email: values.email || null,
         address: values.address,
         items: values.items,
-        total: cartTotal(),
-        tracking_code: trackingCode || null
+        total: cartTotal()
       });
       error = result.error;
     } catch (err) {
@@ -332,12 +383,42 @@
       return;
     }
 
-    // Success: clear the cart and the form, then show the tracking code.
+    // Success: clear the cart and the form, then show the confirmation.
     ui.form.reset();
-    cart = [];
+    clearCart();
     renderCart();
     renderMenuQuantities();
-    showSuccess(trackingCode);
+    showSuccess();
+  }
+
+  async function placeOrder(event) {
+    event.preventDefault();
+    hideMessages();
+
+    if (!cartLines().length) {
+      showError('Please add at least one item to your order.');
+      return;
+    }
+
+    if (typeof supabaseClient === 'undefined' || !supabaseClient) {
+      showError('Sorry, our ordering system is unavailable right now. Please call or WhatsApp us to place your order.');
+      return;
+    }
+
+    // The box only appears here — never on page load.
+    if (typeof authUI !== 'undefined' && authUI) {
+      await authUI.ready;
+
+      if (!authUI.isLoggedIn()) {
+        authUI.openLogin({
+          reason: 'Log in or create an account to place your order. Your cart is saved.',
+          onSuccess: continueOrder
+        });
+        return;
+      }
+    }
+
+    sendOrder();
   }
 
   // ── Init ──
@@ -345,6 +426,8 @@
   function init() {
     cacheElements();
     if (!ui.menu || !ui.form) return;
+
+    cart = loadCart();
 
     renderMenu();
     renderCart();
@@ -362,7 +445,12 @@
     ui.form.addEventListener('submit', placeOrder);
     ui.form.addEventListener('input', hideMessages);
 
-    if (ui.copyCode) ui.copyCode.addEventListener('click', copyCode);
+    // Returning customers get their details ready without any prompt.
+    if (typeof authUI !== 'undefined' && authUI) {
+      authUI.ready.then(function () {
+        if (authUI.isLoggedIn()) prefillFromProfile(true);
+      });
+    }
   }
 
   if (document.readyState === 'loading') {

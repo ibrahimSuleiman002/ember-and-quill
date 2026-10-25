@@ -1,9 +1,9 @@
 // ═══════════════════════════════════════════════════════════════
 //  reservations.js — customer reservation requests
 //  Validates the form, then INSERTs one row into
-//  public.reservations. Customers can only insert — the row is
-//  never read back, and `status` is omitted so it defaults to
-//  PENDING.
+//  public.reservations. `user_id` is filled in by the database and
+//  `status` defaults to PENDING. The login box appears only when the
+//  visitor presses "Request Reservation".
 // ═══════════════════════════════════════════════════════════════
 
 (function () {
@@ -28,9 +28,6 @@
     ui.submit = $('reservationSubmit');
     ui.error = $('reservationError');
     ui.success = $('reservationSuccess');
-    ui.tracking = $('reservationTracking');
-    ui.trackingCode = $('reservationTrackingCode');
-    ui.copyCode = $('copyReservationCode');
   }
 
   // ── Dates ──
@@ -109,38 +106,15 @@
     if (field && typeof field.focus === 'function') field.focus();
   }
 
-  function showSuccess(trackingCode) {
+  function showSuccess() {
     if (ui.error) {
       ui.error.hidden = true;
       ui.error.textContent = '';
     }
     if (!ui.success) return;
 
-    if (ui.trackingCode) ui.trackingCode.textContent = trackingCode || '';
-    if (ui.tracking) ui.tracking.hidden = !trackingCode;
-    if (ui.copyCode) ui.copyCode.textContent = 'Copy';
-
     ui.success.hidden = false;
     if (typeof ui.success.focus === 'function') ui.success.focus();
-  }
-
-  function copyCode() {
-    var code = ui.trackingCode ? ui.trackingCode.textContent : '';
-    if (!code || typeof copyToClipboard !== 'function') return;
-
-    copyToClipboard(code).then(function () {
-      if (!ui.copyCode) return;
-      ui.copyCode.textContent = 'Copied';
-      setTimeout(function () {
-        if (ui.copyCode) ui.copyCode.textContent = 'Copy';
-      }, 2000);
-    }).catch(function () {
-      if (!ui.copyCode) return;
-      ui.copyCode.textContent = 'Copy failed';
-      setTimeout(function () {
-        if (ui.copyCode) ui.copyCode.textContent = 'Copy';
-      }, 2000);
-    });
   }
 
   function setSubmitting(isSubmitting) {
@@ -208,10 +182,40 @@
     return null;
   }
 
+  // ── Account prefill ──
+
+  async function prefillFromProfile(onlyEmpty) {
+    if (typeof authUI === 'undefined' || !authUI) return;
+
+    var saved;
+
+    try {
+      saved = await authUI.getProfile();
+    } catch (err) {
+      return;
+    }
+
+    if (!saved) return;
+
+    function fill(input, value) {
+      if (!input || !value) return;
+      if (onlyEmpty && input.value.trim()) return;
+      input.value = value;
+    }
+
+    fill(ui.name, saved.full_name);
+    fill(ui.phone, saved.phone);
+    fill(ui.email, saved.email);
+  }
+
   // ── Submit ──
 
-  async function submitReservation(event) {
-    event.preventDefault();
+  async function continueReservation() {
+    await prefillFromProfile(false);
+    await sendReservation();
+  }
+
+  async function sendReservation() {
     hideMessages();
 
     var values = readForm();
@@ -228,15 +232,11 @@
 
     setSubmitting(true);
 
-    // Generated in the browser and stored with the reservation.
-    var trackingCode = typeof generateTrackingCode === 'function'
-      ? generateTrackingCode()
-      : '';
-
     var error = null;
     try {
       // Insert only — no .select(), so the customer never reads the row back.
-      // `status` is intentionally omitted so the column default (PENDING) applies.
+      // `user_id` and `status` are intentionally omitted: the database fills
+      // the owner from the session and defaults the status to PENDING.
       var result = await supabaseClient.from('reservations').insert({
         customer_name: values.name,
         phone: values.phone,
@@ -244,8 +244,7 @@
         party_size: Number(values.party),
         reservation_date: values.date,
         reservation_time: values.time,
-        notes: values.notes || null,
-        tracking_code: trackingCode || null
+        notes: values.notes || null
       });
       error = result.error;
     } catch (err) {
@@ -260,11 +259,36 @@
       return;
     }
 
-    // Success: clear the form, restore tomorrow's date, show the code.
+    // Success: clear the form, restore tomorrow's date, show the confirmation.
     ui.form.reset();
     setDateFloor();
     setDefaultDate();
-    showSuccess(trackingCode);
+    showSuccess();
+  }
+
+  async function submitReservation(event) {
+    event.preventDefault();
+    hideMessages();
+
+    if (typeof supabaseClient === 'undefined' || !supabaseClient) {
+      showError('Sorry, our reservation system is unavailable right now. Please call or WhatsApp us to book.');
+      return;
+    }
+
+    // The box only appears here — never on page load.
+    if (typeof authUI !== 'undefined' && authUI) {
+      await authUI.ready;
+
+      if (!authUI.isLoggedIn()) {
+        authUI.openLogin({
+          reason: 'Log in or create an account to request a reservation.',
+          onSuccess: continueReservation
+        });
+        return;
+      }
+    }
+
+    sendReservation();
   }
 
   // ── Init ──
@@ -280,10 +304,16 @@
       ui.date.addEventListener('change', updateDateWords);
       ui.date.addEventListener('input', updateDateWords);
     }
-    if (ui.copyCode) ui.copyCode.addEventListener('click', copyCode);
 
     ui.form.addEventListener('submit', submitReservation);
     ui.form.addEventListener('input', hideMessages);
+
+    // Returning customers get their details ready without any prompt.
+    if (typeof authUI !== 'undefined' && authUI) {
+      authUI.ready.then(function () {
+        if (authUI.isLoggedIn()) prefillFromProfile(true);
+      });
+    }
   }
 
   if (document.readyState === 'loading') {

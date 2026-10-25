@@ -82,16 +82,6 @@
           <div id="reservationError" class="order-message order-error" role="alert" hidden></div>
           <div id="reservationSuccess" class="order-message order-success" role="status" tabindex="-1" hidden>
             <p class="order-success-text">Reservation request received. We will confirm it shortly.</p>
-            <div id="reservationTracking" class="tracking-code-box" hidden>
-              <p class="tracking-code-label">Your tracking code</p>
-              <p class="tracking-code" id="reservationTrackingCode"></p>
-              <div class="tracking-code-actions">
-                <button type="button" id="copyReservationCode" class="btn btn-outline tracking-copy">Copy</button>
-                <a href="track.html" class="btn btn-primary tracking-track-link">Track order</a>
-                <a href="cancel.html" class="btn btn-outline tracking-track-link">Cancel order</a>
-              </div>
-              <p class="tracking-note">Save this code. You need it with your phone number to track or cancel</p>
-            </div>
           </div>
 
           <button type="submit" id="reservationSubmit" class="btn btn-primary order-submit">Request Reservation</button>
@@ -124,12 +114,12 @@
 
   <div id="footer-mount"></div>
 
-  <!-- supabase-js v2 (jsDelivr) → site data → Supabase config → tracking helpers → reservation logic -->
+  <!-- supabase-js v2 (jsDelivr) → site data → Supabase config → customer accounts → reservation logic -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="menu.js"></script>
   <script src="site.js"></script>
   <script src="supabase-config.js"></script>
-  <script src="tracking-code.js"></script>
+  <script src="auth.js"></script>
   <script src="reservations.js"></script>
 </body>
 </html>
