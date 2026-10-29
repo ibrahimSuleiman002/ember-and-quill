@@ -31,6 +31,7 @@
     ui.submit = $('placeOrderBtn');
     ui.error = $('orderError');
     ui.success = $('orderSuccess');
+    ui.statusLine = $('orderStatusLine');
   }
 
   function esc(value) {
@@ -248,6 +249,30 @@
     if (field && typeof field.focus === 'function') field.focus();
   }
 
+  // TEMPORARY (testing): friendly message plus the raw error details.
+  function showSaveError(message, error) {
+    if (ui.success) ui.success.hidden = true;
+    if (!ui.error) return;
+
+    ui.error.textContent = message;
+
+    var lines = [];
+    ['message', 'code', 'details', 'hint'].forEach(function (key) {
+      var value = error ? error[key] : '';
+      if (value) lines.push(key + ': ' + value);
+    });
+
+    if (lines.length) {
+      var detail = document.createElement('p');
+      detail.className = 'order-error-details';
+      detail.style.cssText = 'margin:0.5rem 0 0;font-size:0.75rem;font-weight:400;color:#B8BEC4;white-space:pre-line;word-break:break-word;';
+      detail.textContent = lines.join('\n');
+      ui.error.appendChild(detail);
+    }
+
+    ui.error.hidden = false;
+  }
+
   function showSuccess() {
     if (ui.error) {
       ui.error.hidden = true;
@@ -257,6 +282,60 @@
 
     ui.success.hidden = false;
     if (typeof ui.success.focus === 'function') ui.success.focus();
+  }
+
+  // ── Live order status ──
+
+  function isPaid(order) {
+    return !!(order && order.paid_at);
+  }
+
+  function orderStatusText(order) {
+    var status = String((order && order.status) || '');
+
+    if (status === 'CANCELLED') return 'This order was cancelled.';
+    if (status === 'REJECTED') return 'Your order was rejected. Please call us if you need help.';
+    if (status === 'OUT_FOR_DELIVERY') return 'Your order is on the way!';
+    if (status === 'DELIVERED') return 'Delivered';
+    if (status === 'APPROVED' || status === 'PREPARING') return 'Your order is approved';
+    if (isPaid(order) || status === 'PAID') return 'Payment received';
+    return 'Order received, waiting for payment';
+  }
+
+  function updateStatusLine(order) {
+    if (!ui.statusLine) return;
+    var text = orderStatusText(order);
+    if (ui.statusLine.textContent !== text) ui.statusLine.textContent = text;
+  }
+
+  var orderChannel = null;
+
+  function stopOrderWatch() {
+    if (orderChannel && typeof supabaseClient !== 'undefined' && supabaseClient) {
+      try {
+        supabaseClient.removeChannel(orderChannel);
+      } catch (err) {
+        /* ignore */
+      }
+    }
+    orderChannel = null;
+  }
+
+  function watchOrder(id) {
+    stopOrderWatch();
+    if (!id || typeof supabaseClient === 'undefined' || !supabaseClient) return;
+
+    orderChannel = supabaseClient
+      .channel('order-live-' + id)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'orders',
+        filter: 'id=eq.' + id
+      }, function (payload) {
+        if (payload && payload.new) updateStatusLine(payload.new);
+      })
+      .subscribe();
   }
 
   function setSubmitting(isSubmitting) {
@@ -357,9 +436,14 @@
 
     setSubmitting(true);
 
+    // Generated in the browser and stored with the order, exactly as the
+    // tracking page expects: code + phone number, no login needed.
+    var trackingCode = typeof generateTrackingCode === 'function'
+      ? generateTrackingCode()
+      : '';
+
     var error = null;
     try {
-      // Insert only — no .select(), so the customer never reads the row back.
       // `user_id` and `status` are intentionally omitted: the database fills
       // the owner from the session and defaults the status to PENDING_APPROVAL.
       var result = await supabaseClient.from('orders').insert({
@@ -368,27 +452,48 @@
         email: values.email || null,
         address: values.address,
         items: values.items,
-        total: cartTotal()
+        total: cartTotal(),
+        tracking_code: trackingCode || null
       });
       error = result.error;
     } catch (err) {
       error = err;
     }
 
-    setSubmitting(false);
-
     if (error) {
+      console.error('Order insert failed:', error);
+      setSubmitting(false);
       // Keep everything the customer typed so they can simply retry.
-      showError("Sorry, we couldn't save your order just now. Your details are still here — please try again, or call or WhatsApp us.");
+      showSaveError("Sorry, we couldn't save your order just now. Your details are still here — please try again, or call or WhatsApp us.", error);
       return;
     }
 
-    // Success: clear the cart and the form, then show the confirmation.
+    // Read the row back so the status line can follow this one order.
+    stopOrderWatch();
+    var placed = null;
+    if (trackingCode) {
+      try {
+        var found = await supabaseClient
+          .from('orders')
+          .select('id, status, paid_at')
+          .eq('tracking_code', trackingCode)
+          .maybeSingle();
+        if (!found.error && found.data) placed = found.data;
+      } catch (err) {
+        placed = null;
+      }
+    }
+
+    setSubmitting(false);
+
+    // Success: clear the cart and the form, then show the code + live status.
     ui.form.reset();
     clearCart();
     renderCart();
     renderMenuQuantities();
+    updateStatusLine(placed || { status: 'PENDING_APPROVAL', paid_at: null });
     showSuccess();
+    if (placed && placed.id) watchOrder(placed.id);
   }
 
   async function placeOrder(event) {

@@ -1224,6 +1224,10 @@ footer {
   margin: 0;
 }
 
+.order-success-text + .order-success-text {
+  margin-top: 0.4rem;
+}
+
 /* Code shown after an order or reservation is saved */
 .tracking-code-box {
   margin-top: 1rem;
@@ -1776,6 +1780,25 @@ body.acct-lock {
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--muted);
+}
+
+.my-order-tracking {
+  margin: 0.35rem 0 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.my-order-tracking strong {
+  color: var(--heading);
+  letter-spacing: 0.04em;
+}
+
+.my-order-status {
+  margin: 0.5rem 0 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--sage);
 }
 
 .my-order-actions {

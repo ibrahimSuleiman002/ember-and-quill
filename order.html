@@ -80,8 +80,8 @@
           </div>
 
           <div id="orderError" class="order-message order-error" role="alert" hidden></div>
-          <div id="orderSuccess" class="order-message order-success" role="status" tabindex="-1" hidden>
-            <p class="order-success-text">Order received. We will confirm it shortly.</p>
+          <div id="orderSuccess" class="order-message order-success" role="status" aria-live="polite" tabindex="-1" hidden>
+            <p class="order-success-text" id="orderStatusLine"></p>
           </div>
 
           <button type="submit" id="placeOrderBtn" class="btn btn-primary order-submit">Place Order</button>
@@ -94,12 +94,13 @@
 
   <div id="footer-mount"></div>
 
-  <!-- supabase-js v2 (jsDelivr) → site data → Supabase config → customer accounts → order logic -->
+  <!-- supabase-js v2 (jsDelivr) → site data → Supabase config → customer accounts → tracking code → order logic -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="menu.js"></script>
   <script src="site.js"></script>
   <script src="supabase-config.js"></script>
   <script src="auth.js"></script>
+  <script src="tracking-code.js"></script>
   <script src="order.js"></script>
 </body>
 </html>

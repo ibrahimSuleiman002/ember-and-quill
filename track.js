@@ -3,7 +3,7 @@
 //  Visitors never read the tables. They only call the Supabase
 //  RPCs: track_order and track_reservation. The result is
 //  refreshed every 15 seconds while a booking is on screen.
-//  Cancelling lives on cancel.html.
+//  Cancelling lives on my-orders.html.
 // ═══════════════════════════════════════════════════════════════
 
 (function () {
@@ -218,7 +218,7 @@
       ? '<span class="track-pill is-done">Payment received</span>'
       : '';
     var cancelHtml = canCancelOrder(order)
-      ? '<p class="track-cancel-link"><a href="cancel.html">Need to cancel? Cancel this booking</a></p>'
+      ? '<p class="track-cancel-link"><a href="my-orders.html" data-requires-auth>Need to cancel? Cancel this booking</a></p>'
       : '';
 
     return '<article class="track-card">' +
@@ -247,7 +247,7 @@
       : '';
 
     var cancelHtml = canCancelReservation(reservation)
-      ? '<p class="track-cancel-link"><a href="cancel.html">Need to cancel? Cancel this booking</a></p>'
+      ? '<p class="track-cancel-link"><a href="my-orders.html" data-requires-auth>Need to cancel? Cancel this booking</a></p>'
       : '';
 
     var notesHtml = '<dt>Notes</dt><dd>' +

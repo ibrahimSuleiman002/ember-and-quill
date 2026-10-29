@@ -106,6 +106,30 @@
     if (field && typeof field.focus === 'function') field.focus();
   }
 
+  // TEMPORARY (testing): friendly message plus the raw error details.
+  function showSaveError(message, error) {
+    if (ui.success) ui.success.hidden = true;
+    if (!ui.error) return;
+
+    ui.error.textContent = message;
+
+    var lines = [];
+    ['message', 'code', 'details', 'hint'].forEach(function (key) {
+      var value = error ? error[key] : '';
+      if (value) lines.push(key + ': ' + value);
+    });
+
+    if (lines.length) {
+      var detail = document.createElement('p');
+      detail.className = 'order-error-details';
+      detail.style.cssText = 'margin:0.5rem 0 0;font-size:0.75rem;font-weight:400;color:#B8BEC4;white-space:pre-line;word-break:break-word;';
+      detail.textContent = lines.join('\n');
+      ui.error.appendChild(detail);
+    }
+
+    ui.error.hidden = false;
+  }
+
   function showSuccess() {
     if (ui.error) {
       ui.error.hidden = true;
@@ -232,9 +256,14 @@
 
     setSubmitting(true);
 
+    // Generated in the browser and stored with the reservation, exactly as
+    // the tracking page expects: code + phone number, no login needed.
+    var trackingCode = typeof generateTrackingCode === 'function'
+      ? generateTrackingCode()
+      : '';
+
     var error = null;
     try {
-      // Insert only — no .select(), so the customer never reads the row back.
       // `user_id` and `status` are intentionally omitted: the database fills
       // the owner from the session and defaults the status to PENDING.
       var result = await supabaseClient.from('reservations').insert({
@@ -244,7 +273,8 @@
         party_size: Number(values.party),
         reservation_date: values.date,
         reservation_time: values.time,
-        notes: values.notes || null
+        notes: values.notes || null,
+        tracking_code: trackingCode || null
       });
       error = result.error;
     } catch (err) {
@@ -254,12 +284,13 @@
     setSubmitting(false);
 
     if (error) {
+      console.error('Reservation insert failed:', error);
       // Keep everything the customer typed so they can simply retry.
-      showError("Sorry, we couldn't save your reservation just now. Your details are still here — please try again, or call or WhatsApp us.");
+      showSaveError("Sorry, we couldn't save your reservation just now. Your details are still here — please try again, or call or WhatsApp us.", error);
       return;
     }
 
-    // Success: clear the form, restore tomorrow's date, show the confirmation.
+    // Success: clear the form, restore tomorrow's date, show the code.
     ui.form.reset();
     setDateFloor();
     setDefaultDate();

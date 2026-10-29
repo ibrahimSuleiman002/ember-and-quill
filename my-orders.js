@@ -19,6 +19,7 @@
   var reloadTimer = null;
   var loading = false;
   var reloadAgain = false;
+  var lastLoadOk = false;      // true only when the last load returned without errors
   var ui = {};
 
   var ORDER_LABELS = {
@@ -49,6 +50,7 @@
     ui.message = $('myOrdersMessage');
     ui.gate = $('myOrdersGate');
     ui.login = $('myOrdersLogin');
+    ui.refresh = $('myOrdersRefresh');
     ui.loading = $('myOrdersLoading');
     ui.toast = $('myOrdersToast');
     ui.dialog = $('cancelDialog');
@@ -176,6 +178,18 @@
     return !!(order && order.paid_at);
   }
 
+  function orderStatusText(order) {
+    var status = String((order && order.status) || '');
+
+    if (status === 'CANCELLED') return 'This order was cancelled.';
+    if (status === 'REJECTED') return 'Your order was rejected. Please call us if you need help.';
+    if (status === 'OUT_FOR_DELIVERY') return 'Your order is on the way!';
+    if (status === 'DELIVERED') return 'Delivered';
+    if (status === 'APPROVED' || status === 'PREPARING') return 'Your order is approved';
+    if (isPaid(order) || status === 'PAID') return 'Payment received';
+    return 'Order received, waiting for payment';
+  }
+
   function canCancelOrder(order) {
     var status = String(order.status || '');
     return !isPaid(order) && (status === 'PENDING_APPROVAL' || status === 'APPROVED');
@@ -242,6 +256,13 @@
 
     var placed = shortDate(order.created_at);
 
+    // The banner already spells out the terminal / on-the-way states.
+    var banner = orderBanner(status);
+    var statusText = orderStatusText(order);
+    var statusLine = banner.indexOf(statusText) === -1
+      ? '<p class="my-order-status">' + esc(statusText) + '</p>'
+      : '';
+
     var cancelHtml = canCancelOrder(order)
       ? '<div class="my-order-actions">' +
           '<button type="button" class="btn btn-danger" data-cancel-order="' + esc(order.id) + '">Cancel order</button>' +
@@ -257,7 +278,8 @@
         paidBadge +
       '</div>' +
       (placed ? '<p class="my-order-date">Placed ' + esc(placed) + '</p>' : '') +
-      orderBanner(status) +
+      statusLine +
+      banner +
       progressHtml(status) +
       '<div class="track-items">' + itemsHtml + '</div>' +
       '<div class="order-total-row">' +
@@ -317,8 +339,10 @@
     });
 
     if (!entries.length) {
-      ui.list.innerHTML = '<p class="track-empty">You have no orders or reservations yet. ' +
-        '<a href="order.html">Order online</a> or <a href="reservations.html">book a table</a>.</p>';
+      ui.list.innerHTML = lastLoadOk
+        ? '<p class="track-empty">You have no orders or reservations yet. ' +
+          '<a href="order.html">Order online</a> or <a href="reservations.html">book a table</a>.</p>'
+        : '';
       return;
     }
 
@@ -341,6 +365,12 @@
     if (!ui.message) return;
     ui.message.hidden = true;
     ui.message.textContent = '';
+  }
+
+  function errorText(err) {
+    if (!err) return 'Unknown error.';
+    if (typeof err === 'string') return err;
+    return err.message || err.details || err.hint || String(err);
   }
 
   function showToast(text) {
@@ -400,6 +430,7 @@
   function showGate(show) {
     if (!ui.gate) return;
     ui.gate.hidden = !show;
+    if (ui.refresh) ui.refresh.disabled = show;
     if (show) {
       ui.list.innerHTML = '';
       ui.list.hidden = true;
@@ -407,6 +438,19 @@
     } else {
       ui.list.hidden = false;
     }
+  }
+
+  function failLoad(text) {
+    lastLoadOk = false;
+    reloadAgain = false;
+    if (ui.list) ui.list.innerHTML = '';
+    showMessage(text, 'error');
+  }
+
+  function reloadList() {
+    if (!client || !authUI || !authUI.isLoggedIn()) return;
+    hideMessage();
+    loadAll();
   }
 
   async function loadAll() {
@@ -424,18 +468,18 @@
     try {
       results = await Promise.all([
         client.from('orders')
-          .select('id, order_no, items, total, status, paid_at, created_at')
+          .select('id, order_no, items, total, status, paid_at, tracking_code, created_at')
           .order('created_at', { ascending: false })
           .limit(100),
         client.from('reservations')
-          .select('id, party_size, reservation_date, reservation_time, notes, status, created_at')
+          .select('id, party_size, reservation_date, reservation_time, notes, status, tracking_code, created_at')
           .order('created_at', { ascending: false })
           .limit(100)
       ]);
     } catch (err) {
       loading = false;
       if (ui.loading) ui.loading.hidden = true;
-      showMessage('We could not load your bookings just now. Please refresh the page or try again shortly.', 'error');
+      failLoad('Could not load your bookings. ' + errorText(err));
       return;
     }
 
@@ -445,12 +489,18 @@
     var ordersRes = results[0];
     var reservationsRes = results[1];
 
-    if (!ordersRes.error) orders = ordersRes.data || [];
-    if (!reservationsRes.error) reservations = reservationsRes.data || [];
+    var problems = [];
+    if (ordersRes.error) problems.push('orders: ' + errorText(ordersRes.error));
+    if (reservationsRes.error) problems.push('reservations: ' + errorText(reservationsRes.error));
 
-    if (ordersRes.error || reservationsRes.error) {
-      showMessage('Some of your bookings could not be loaded just now. Please refresh the page or try again shortly.', 'error');
+    if (problems.length) {
+      failLoad('Could not load your bookings (' + problems.join('; ') + ').');
+      return;
     }
+
+    lastLoadOk = true;
+    orders = ordersRes.data || [];
+    reservations = reservationsRes.data || [];
 
     statuses = {};
     orders.forEach(function (order) {
@@ -655,6 +705,10 @@
       openLogin();
     });
 
+    if (ui.refresh) {
+      ui.refresh.addEventListener('click', reloadList);
+    }
+
     ui.list.addEventListener('click', function (event) {
       var orderBtn = event.target.closest ? event.target.closest('[data-cancel-order]') : null;
       if (orderBtn) {
@@ -683,9 +737,12 @@
     });
 
     document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'visible' && authUI && authUI.isLoggedIn()) {
-        loadAll();
-      }
+      if (document.visibilityState === 'visible') reloadList();
+    });
+
+    // Restored from the back/forward cache: the page was "reopened".
+    window.addEventListener('pageshow', function (event) {
+      if (event.persisted) reloadList();
     });
 
     document.addEventListener('pointerdown', unlockAudio, { once: true });
@@ -702,6 +759,7 @@
           orders = [];
           reservations = [];
           statuses = {};
+          lastLoadOk = false;
           hideMessage();
           render();
           showGate(true);

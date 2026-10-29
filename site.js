@@ -45,6 +45,7 @@ function renderFooter() {
           <li><a href="gallery.html">Gallery</a></li>
           <li><a href="reservations.html">Reservations</a></li>
           <li><a href="my-orders.html" data-requires-auth>My orders</a></li>
+          <li><a href="my-orders.html" data-requires-auth>Cancel order</a></li>
           <li><a href="contact.html">Contact</a></li>
           <li><a href="privacy.html">Privacy Policy</a></li>
         </ul>
