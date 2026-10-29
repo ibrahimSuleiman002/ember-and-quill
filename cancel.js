@@ -9,7 +9,7 @@
 (function () {
   'use strict';
 
-  var client = (typeof supabaseClient === 'undefined') ? null : supabaseClient;
+  var client = window.eqSupabase || null;
   var ui = {};
   var current = null;        // { code, phone, order, reservation }
   var busy = false;

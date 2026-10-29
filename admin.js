@@ -13,7 +13,7 @@
 //  optional browser notification.
 // ═══════════════════════════════════════════════════════════════
 
-const client = (typeof supabaseClient === "undefined") ? null : supabaseClient;
+const client = window.eqSupabase || null;
 
 const STATUS_ORDER = [
   "PENDING_APPROVAL", "APPROVED", "PAID", "PREPARING",

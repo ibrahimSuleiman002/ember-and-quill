@@ -15,7 +15,10 @@
 (function () {
   'use strict';
 
-  var client = (typeof supabaseClient === 'undefined') ? null : supabaseClient;
+  // The one client created in supabase-config.js. Never create another one
+  // here: a second instance keeps its session in its own memory only, which
+  // is how the login box and the order page end up disagreeing.
+  var client = window.eqSupabase || null;
 
   var session = null;
   var user = null;
@@ -270,6 +273,17 @@
               '<input class="order-input" id="acctLoginPassword" name="password" type="password" autocomplete="current-password" placeholder="Your password" required>' +
             '</div>' +
             '<button type="submit" id="acctLoginBtn" class="btn btn-primary acct-submit">Log in</button>' +
+            '<p class="acct-forgot"><button type="button" class="acct-link" id="acctForgot">Forgot password?</button></p>' +
+          '</form>' +
+
+          '<form id="acctForgotForm" class="acct-form" novalidate hidden>' +
+            '<p class="acct-hint">Enter the email address you used for your account and we will send you a link to choose a new password.</p>' +
+            '<div class="order-field">' +
+              '<label for="acctForgotEmail">Email</label>' +
+              '<input class="order-input" id="acctForgotEmail" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>' +
+            '</div>' +
+            '<button type="submit" id="acctForgotBtn" class="btn btn-primary acct-submit">Send reset link</button>' +
+            '<p class="acct-forgot"><button type="button" class="acct-link" id="acctBackToLogin">Back to log in</button></p>' +
           '</form>' +
         '</div>' +
 
@@ -302,6 +316,11 @@
     ui.loginBtn = $('acctLoginBtn');
     ui.loginEmail = $('acctLoginEmail');
     ui.loginPassword = $('acctLoginPassword');
+    ui.forgotLink = $('acctForgot');
+    ui.forgotForm = $('acctForgotForm');
+    ui.forgotBtn = $('acctForgotBtn');
+    ui.forgotEmail = $('acctForgotEmail');
+    ui.backToLogin = $('acctBackToLogin');
   }
 
   function bindBox() {
@@ -334,8 +353,11 @@
 
     ui.signupForm.addEventListener('submit', handleSignup);
     ui.loginForm.addEventListener('submit', handleLogin);
+    ui.forgotForm.addEventListener('submit', handleForgot);
+    ui.forgotLink.addEventListener('click', showForgotForm);
+    ui.backToLogin.addEventListener('click', showLoginForm);
 
-    [ui.signupForm, ui.loginForm].forEach(function (form) {
+    [ui.signupForm, ui.loginForm, ui.forgotForm].forEach(function (form) {
       form.addEventListener('input', hideMessage);
     });
 
@@ -380,6 +402,12 @@
     ui.panelCreate.hidden = !create;
     ui.panelLogin.hidden = create;
 
+    // Returning to Log in always lands on the login form, not the reset form.
+    if (!create) {
+      ui.forgotForm.hidden = true;
+      ui.loginForm.hidden = false;
+    }
+
     if (focus) {
       (create ? ui.name : ui.loginEmail).focus();
     }
@@ -387,7 +415,8 @@
 
   function showMessage(text, type) {
     if (!ui.message) return;
-    ui.message.className = 'order-message ' + (type === 'success' ? 'order-success' : 'order-error');
+    var tone = type === 'success' ? 'order-success' : (type === 'info' ? 'order-info' : 'order-error');
+    ui.message.className = 'order-message ' + tone;
     ui.message.textContent = text;
     ui.message.hidden = false;
   }
@@ -427,6 +456,9 @@
 
     ui.signupForm.reset();
     ui.loginForm.reset();
+    ui.forgotForm.reset();
+    ui.forgotForm.hidden = true;
+    ui.loginForm.hidden = false;
     if (options.email && ui.loginEmail) ui.loginEmail.value = options.email;
 
     switchTab(options.tab === 'login' ? 'login' : 'create', false);
@@ -572,7 +604,17 @@
       }
 
       if (res.data && res.data.session) {
-        setSession(res.data.session);
+        // Only trust the sign-up once the client can hand the session back.
+        var stored = await currentSession();
+
+        if (!stored) {
+          setSession(null);
+          ui.loginEmail.value = values.email;
+          showMessage('Your account was created, but we could not keep you logged in. Please log in to continue — your cart is saved.', 'error');
+          switchTab('login', false);
+          return;
+        }
+
         await saveProfile(values);
         finishLogin();
         return;
@@ -634,7 +676,16 @@
         return;
       }
 
-      setSession(res.data.session);
+      // signInWithPassword reports success, but the insert is only sent as
+      // the customer if the client really holds a session afterwards.
+      var stored = await currentSession();
+
+      if (!stored) {
+        setSession(null);
+        showMessage('We could not keep you logged in. Please check that this browser allows storage for this site, then try again.', 'error');
+        return;
+      }
+
       await loadProfile(true);
 
       var saved = await loadProfile(false);
@@ -676,6 +727,130 @@
     if (document.body && document.body.getAttribute('data-page') === 'my-orders') {
       window.location.href = 'index.html';
     }
+  }
+
+  // ── Forgotten password ──────────────────────────────────────
+
+  function showForgotForm() {
+    hideMessage();
+    var typed = ui.loginEmail.value.trim();
+    if (typed && ui.forgotEmail) ui.forgotEmail.value = typed;
+    ui.loginForm.hidden = true;
+    ui.forgotForm.hidden = false;
+    if (ui.forgotEmail) ui.forgotEmail.focus();
+  }
+
+  function showLoginForm() {
+    hideMessage();
+    ui.forgotForm.hidden = true;
+    ui.loginForm.hidden = false;
+    var typed = ui.forgotEmail ? ui.forgotEmail.value.trim() : '';
+    if (typed && ui.loginEmail && !ui.loginEmail.value.trim()) ui.loginEmail.value = typed;
+    if (ui.loginPassword) ui.loginPassword.focus();
+  }
+
+  async function handleForgot(event) {
+    event.preventDefault();
+    hideMessage();
+
+    var email = ui.forgotEmail.value.trim();
+
+    if (!email) {
+      showMessage('Please enter your email address.', 'error');
+      return;
+    }
+    if (!looksLikeEmail(email)) {
+      showMessage('Please enter a valid email address.', 'error');
+      return;
+    }
+    if (!client) {
+      showMessage('Password resets are unavailable right now. Please call or WhatsApp us.', 'error');
+      return;
+    }
+
+    setBusy(ui.forgotBtn, true, 'Sending…', 'Send reset link');
+
+    // The same answer goes out whether or not an account exists, so the
+    // box cannot be used to discover which emails are registered.
+    try {
+      await client.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/reset-password.html'
+      });
+    } catch (err) {
+      /* the neutral confirmation below is shown either way */
+    }
+
+    setBusy(ui.forgotBtn, false, 'Sending…', 'Send reset link');
+    showMessage('If that email has an account, we have sent a reset link.', 'info');
+  }
+
+  // ── Session truth ───────────────────────────────────────────
+
+  // The session the next database request will carry. Always read it from
+  // the client (which owns localStorage and refreshes tokens) rather than
+  // from our cached copy, so a restored, refreshed or just-created session
+  // is the one actually used. Returns null when there is genuinely none and
+  // clears the cached user, so the page never shows "Hi, …" without one.
+  async function currentSession() {
+    if (!client) return null;
+
+    try {
+      var res = await client.auth.getSession();
+      var live = res && res.data ? res.data.session : null;
+      if (live && live.user) {
+        setSession(live);
+        return live;
+      }
+    } catch (err) {
+      /* treat a failed read as "no session" */
+    }
+
+    setSession(null);
+    return null;
+  }
+
+  // ── Rejected sessions ───────────────────────────────────────
+
+  // PostgREST rejects an expired/invalid JWT with 401 and code PGRST301.
+  function isSessionError(error) {
+    if (!error) return false;
+
+    var code = String(error.code || '');
+    var message = String(error.message || '').toLowerCase();
+
+    if (code === 'PGRST301' || code === '401') return true;
+    if (message.indexOf('jwt') >= 0) return true;
+    if (message.indexOf('token') >= 0 && message.indexOf('expired') >= 0) return true;
+    return message.indexOf('session') >= 0 &&
+      (message.indexOf('expired') >= 0 || message.indexOf('invalid') >= 0);
+  }
+
+  // Only called after the database itself rejected the request, never to
+  // pre-check a fresh login. A successful refresh updates the shared session
+  // so the caller can resend the same insert.
+  async function recoverSession() {
+    if (!client) return false;
+
+    try {
+      var res = await client.auth.refreshSession();
+      if (res && !res.error && res.data && res.data.session) {
+        setSession(res.data.session);
+        return true;
+      }
+    } catch (err) {
+      /* fall through: the refresh token is gone */
+    }
+
+    setSession(null);
+    return false;
+  }
+
+  function promptSessionExpired(onSuccess) {
+    openLogin({
+      tab: 'login',
+      reason: 'Your session expired. Please log in again to continue — your cart is saved.',
+      onSuccess: onSuccess
+    });
   }
 
   // ── Footer / header links ───────────────────────────────────
@@ -735,7 +910,8 @@
       }
 
       client.auth.onAuthStateChange(function (event, nextSession) {
-        // Do not await Supabase calls inside this callback.
+        // Do not await Supabase calls inside this callback. Auth events only
+        // update the page state; they are never treated as an expired session.
         setSession(nextSession);
 
         if (nextSession && nextSession.user) {
@@ -760,7 +936,11 @@
     getSession: function () {
       return session;
     },
+    currentSession: currentSession,
     getProfile: getProfile,
+    isSessionError: isSessionError,
+    recoverSession: recoverSession,
+    promptSessionExpired: promptSessionExpired,
     openLogin: openLogin,
     closeLogin: function () {
       closeBox(true);

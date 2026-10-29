@@ -7,7 +7,8 @@
 (function () {
   'use strict';
 
-  var client = (typeof supabaseClient === 'undefined') ? null : supabaseClient;
+  // The one client created in supabase-config.js, shared with auth.js.
+  var client = window.eqSupabase || null;
 
   var orders = [];
   var reservations = [];

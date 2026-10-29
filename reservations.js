@@ -11,6 +11,9 @@
 
   var ui = {};
 
+  // The one client created in supabase-config.js, shared with auth.js.
+  var client = window.eqSupabase || null;
+
   function $(id) {
     return document.getElementById(id);
   }
@@ -104,30 +107,6 @@
       ui.error.hidden = false;
     }
     if (field && typeof field.focus === 'function') field.focus();
-  }
-
-  // TEMPORARY (testing): friendly message plus the raw error details.
-  function showSaveError(message, error) {
-    if (ui.success) ui.success.hidden = true;
-    if (!ui.error) return;
-
-    ui.error.textContent = message;
-
-    var lines = [];
-    ['message', 'code', 'details', 'hint'].forEach(function (key) {
-      var value = error ? error[key] : '';
-      if (value) lines.push(key + ': ' + value);
-    });
-
-    if (lines.length) {
-      var detail = document.createElement('p');
-      detail.className = 'order-error-details';
-      detail.style.cssText = 'margin:0.5rem 0 0;font-size:0.75rem;font-weight:400;color:#B8BEC4;white-space:pre-line;word-break:break-word;';
-      detail.textContent = lines.join('\n');
-      ui.error.appendChild(detail);
-    }
-
-    ui.error.hidden = false;
   }
 
   function showSuccess() {
@@ -235,8 +214,42 @@
   // ── Submit ──
 
   async function continueReservation() {
-    await prefillFromProfile(false);
+    await prefillFromProfile(true);
     await sendReservation();
+  }
+
+  // The session the insert will be sent with. Read straight from the client
+  // so a session restored from storage, refreshed, or just created by the
+  // login box is the one used. authUI.currentSession also syncs the header.
+  async function activeSession() {
+    if (typeof authUI !== 'undefined' && authUI && typeof authUI.currentSession === 'function') {
+      return await authUI.currentSession();
+    }
+
+    try {
+      var res = await client.auth.getSession();
+      var live = res && res.data ? res.data.session : null;
+      return live && live.user ? live : null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  // A rejected JWT is only ever diagnosed from the database response, never
+  // from an auth event or a pre-flight check.
+  function isSessionError(error) {
+    return typeof authUI !== 'undefined' && authUI && typeof authUI.isSessionError === 'function'
+      ? authUI.isSessionError(error)
+      : false;
+  }
+
+  async function insertReservation(payload) {
+    try {
+      var result = await client.from('reservations').insert(payload);
+      return result.error || null;
+    } catch (err) {
+      return err;
+    }
   }
 
   async function sendReservation() {
@@ -249,8 +262,26 @@
       return;
     }
 
-    if (typeof supabaseClient === 'undefined' || !supabaseClient) {
+    if (!client) {
       showError('Sorry, our reservation system is unavailable right now. Please call or WhatsApp us to book.');
+      return;
+    }
+
+    // The database runs this insert as whoever the session belongs to. With no
+    // session PostgREST runs it as `anon`, which the grants refuse, so never
+    // send it: ask for a login instead. The typed details stay put.
+    var live = await activeSession();
+
+    if (!live) {
+      if (typeof authUI !== 'undefined' && authUI && typeof authUI.openLogin === 'function') {
+        authUI.openLogin({
+          tab: 'login',
+          reason: 'Please log in to request a reservation. Your details are saved.',
+          onSuccess: continueReservation
+        });
+      } else {
+        showError('Please log in to request a reservation. Reload the page if the login box does not open.');
+      }
       return;
     }
 
@@ -262,31 +293,44 @@
       ? generateTrackingCode()
       : '';
 
-    var error = null;
-    try {
-      // `user_id` and `status` are intentionally omitted: the database fills
-      // the owner from the session and defaults the status to PENDING.
-      var result = await supabaseClient.from('reservations').insert({
-        customer_name: values.name,
-        phone: values.phone,
-        email: values.email || null,
-        party_size: Number(values.party),
-        reservation_date: values.date,
-        reservation_time: values.time,
-        notes: values.notes || null,
-        tracking_code: trackingCode || null
-      });
-      error = result.error;
-    } catch (err) {
-      error = err;
+    // `user_id` and `status` are intentionally omitted: the database fills
+    // the owner from the session and defaults the status to PENDING.
+    var payload = {
+      customer_name: values.name,
+      phone: values.phone,
+      email: values.email || null,
+      party_size: Number(values.party),
+      reservation_date: values.date,
+      reservation_time: values.time,
+      notes: values.notes || null,
+      tracking_code: trackingCode || null
+    };
+
+    var error = await insertReservation(payload);
+
+    // The database rejected the session (401 / JWT expired). Refresh once and
+    // resend the same request; the customer is not asked to log in again.
+    if (error && isSessionError(error)) {
+      var recovered = typeof authUI !== 'undefined' && authUI && authUI.recoverSession
+        ? await authUI.recoverSession()
+        : false;
+
+      if (recovered) error = await insertReservation(payload);
     }
 
     setSubmitting(false);
 
     if (error) {
       console.error('Reservation insert failed:', error);
+
+      // Only here — after a real 401 and a failed refresh — ask for a login.
+      if (isSessionError(error) && typeof authUI !== 'undefined' && authUI && authUI.promptSessionExpired) {
+        authUI.promptSessionExpired(continueReservation);
+        return;
+      }
+
       // Keep everything the customer typed so they can simply retry.
-      showSaveError("Sorry, we couldn't save your reservation just now. Your details are still here — please try again, or call or WhatsApp us.", error);
+      showError("Sorry, we couldn't save your reservation just now. Your details are still here — please try again, or call or WhatsApp us.");
       return;
     }
 
@@ -301,24 +345,13 @@
     event.preventDefault();
     hideMessages();
 
-    if (typeof supabaseClient === 'undefined' || !supabaseClient) {
+    if (!client) {
       showError('Sorry, our reservation system is unavailable right now. Please call or WhatsApp us to book.');
       return;
     }
 
-    // The box only appears here — never on page load.
-    if (typeof authUI !== 'undefined' && authUI) {
-      await authUI.ready;
-
-      if (!authUI.isLoggedIn()) {
-        authUI.openLogin({
-          reason: 'Log in or create an account to request a reservation.',
-          onSuccess: continueReservation
-        });
-        return;
-      }
-    }
-
+    // sendReservation checks the session immediately before the insert and
+    // opens the login box if there is none. Nothing is shown on page load.
     sendReservation();
   }
 
