@@ -74,6 +74,7 @@ const ACTIVITY_LABELS = {
   ORDER_DELIVERED: "Order delivered",
   ORDER_CANCELLED_BY_CUSTOMER: "Cancelled by customer",
   RESERVATION_CONFIRMED: "Reservation confirmed",
+  RESERVATION_MARKED_PAID: "Marked as paid",
   RESERVATION_CANCELLED: "Reservation cancelled",
   RESERVATION_CANCELLED_BY_CUSTOMER: "Cancelled by customer"
 };
@@ -571,7 +572,7 @@ async function loadReservations(opts) {
   try {
     const res = await client
       .from("reservations")
-      .select("id, customer_name, phone, email, party_size, reservation_date, reservation_time, notes, status, created_at")
+      .select("id, customer_name, phone, email, party_size, reservation_date, reservation_time, notes, status, paid_at, created_at")
       .order("created_at", { ascending: false, nullsFirst: false });
 
     if (res.error) error = res.error;
@@ -619,7 +620,7 @@ async function loadActivity(opts) {
   try {
     const res = await client
       .from("activity_log")
-      .select("id, actor_email, action, target_type, target_id, created_at")
+      .select("id, actor_email, action, target_type, target_id, note, created_at")
       .order("created_at", { ascending: false, nullsFirst: false });
 
     if (res.error) error = res.error;
@@ -818,6 +819,7 @@ function renderCustomers() {
 
 function reservationCard(r) {
   const isPending = r.status === "PENDING";
+  const isPaid = !!r.paid_at;
   const phone = r.phone || "";
   const busy = state.saving ? " disabled" : "";
 
@@ -825,12 +827,32 @@ function reservationCard(r) {
     ? '<p class="reservation-notes">' + esc(r.notes) + "</p>"
     : "";
 
-  const actionHtml = isPending
-    ? '<button type="button" class="btn-admin-primary res-action" data-action="confirm" data-res-id="' +
-        esc(r.id) + '"' + busy + ">Confirm</button>" +
+  const paymentBlocked = isPending && !isPaid;
+  const payNoteId = "resPayNote-" + r.id;
+
+  let actionHtml = "";
+
+  if (isPending) {
+    actionHtml +=
+      '<button type="button" class="btn-admin-primary res-action" data-action="confirm" data-res-id="' +
+        esc(r.id) + '"' + (state.saving || paymentBlocked ? " disabled" : "") +
+        (paymentBlocked ? ' aria-describedby="' + esc(payNoteId) + '"' : "") + ">Confirm</button>" +
       '<button type="button" class="btn-admin-danger res-action" data-action="cancel" data-res-id="' +
-        esc(r.id) + '"' + busy + ">Cancel</button>"
-    : "";
+        esc(r.id) + '"' + busy + ">Cancel</button>";
+  }
+
+  if (!isPaid && r.status !== "CANCELLED") {
+    actionHtml +=
+      '<button type="button" class="btn-admin-outline res-action" data-action="paid" data-res-id="' +
+        esc(r.id) + '"' + busy + ">Mark as paid</button>";
+  }
+
+  if (paymentBlocked) {
+    actionHtml +=
+      '<span class="order-action-note" id="' + esc(payNoteId) + '">' +
+        "Mark as paid first" +
+      "</span>";
+  }
 
   const contactHtml = phone
     ? '<a class="btn-admin-outline" href="tel:' + esc(phoneIntl(phone)) + '">Call ' + esc(phone) + "</a>" +
@@ -841,7 +863,10 @@ function reservationCard(r) {
     '<div class="order-card-main">' +
       '<div class="order-card-top reservation-top">' +
         '<span class="order-card-customer reservation-name">' + esc(r.customer_name || "Unknown guest") + "</span>" +
-        '<span class="status ' + resStatusClass(r.status) + '">' + esc(resStatusLabel(r.status)) + "</span>" +
+        '<span class="reservation-badges">' +
+          '<span class="status ' + resStatusClass(r.status) + '">' + esc(resStatusLabel(r.status)) + "</span>" +
+          '<span class="tag ' + (isPaid ? "tag-paid" : "tag-awaiting") + '">' + (isPaid ? "Paid" : "Unpaid") + "</span>" +
+        "</span>" +
       "</div>" +
       '<div class="order-card-meta">' + esc(phone || "No phone") + " · " + guestsLabel(r.party_size) + "</div>" +
       '<div class="order-card-meta">' + esc(formatDate(r.reservation_date)) + " at " + esc(r.reservation_time || "—") + "</div>" +
@@ -864,10 +889,15 @@ function renderReservations() {
   }
 
   const alertHtml = state.resActionError
-    ? '<div class="admin-alert admin-alert-error" role="alert">' +
-        "<strong>Could not update the reservation.</strong>" +
-        '<p class="admin-alert-detail">' + esc(state.resActionError) + "</p>" +
-      "</div>"
+    ? (isReservationPaymentRequiredError(state.resActionError)
+        ? '<div class="admin-alert admin-alert-error" role="alert">' +
+            "<strong>This reservation must be paid before it can be confirmed.</strong>" +
+            '<p class="admin-alert-detail">Mark the reservation as paid, then confirm it.</p>' +
+          "</div>"
+        : '<div class="admin-alert admin-alert-error" role="alert">' +
+            "<strong>Could not update the reservation.</strong>" +
+            '<p class="admin-alert-detail">' + esc(errorText(state.resActionError)) + "</p>" +
+          "</div>")
     : "";
 
   const list = state.reservations.filter(function (r) {
@@ -901,7 +931,8 @@ function renderActivity() {
   el.activityList.innerHTML = state.activity.map(function (entry) {
     return '<div class="activity-item">' +
       '<div class="activity-main">' +
-        '<div class="activity-action">' + esc(activityLabel(entry.action)) + "</div>" +
+        '<div class="activity-action">' + esc(activityLabel(entry.action)) +
+          (entry.note ? ' (' + esc(entry.note) + ')' : '') + "</div>" +
         '<div class="activity-target">' + esc(activityTarget(entry)) + "</div>" +
       "</div>" +
       '<div class="activity-meta">' +
@@ -962,6 +993,13 @@ function isPaymentRequiredError(err) {
     .filter(Boolean)
     .join(" ");
   return /must be paid before it can be approved/i.test(text);
+}
+
+function isReservationPaymentRequiredError(err) {
+  const text = [err && err.message, err && err.details, err && err.hint, errorText(err)]
+    .filter(Boolean)
+    .join(" ");
+  return /must be paid before it can be confirmed/i.test(text);
 }
 
 function showPanelError(err) {
@@ -1266,7 +1304,7 @@ async function updateReservationStatus(reservation, status) {
   state.saving = false;
 
   if (error) {
-    state.resActionError = errorText(error);
+    state.resActionError = error;
     renderReservations();
     return;
   }
@@ -1302,6 +1340,63 @@ function confirmCancelReservation(reservation) {
   });
 }
 
+function confirmMarkReservationPaid(reservation) {
+  openModal({
+    title: "Mark as paid",
+    body: "Mark this reservation as paid?",
+    confirmLabel: "Yes, mark as paid",
+    cancelLabel: "No",
+    onConfirm: function () { markReservationPaid(reservation); }
+  });
+}
+
+async function markReservationPaid(reservation) {
+  if (state.saving || !client) return;
+
+  state.saving = true;
+  state.resActionError = null;
+  renderReservations();
+
+  const paidAt = new Date().toISOString();
+  let error = null;
+
+  try {
+    const res = await client
+      .from("reservations")
+      .update({ paid_at: paidAt })
+      .eq("id", reservation.id)
+      .select("id");
+
+    if (res.error) {
+      error = res.error;
+    } else if (!res.data || !res.data.length) {
+      error = { message: "The reservation was not updated. Your account may not have permission to change reservations." };
+    }
+  } catch (err) {
+    error = err;
+  }
+
+  state.saving = false;
+
+  if (error) {
+    state.resActionError = error;
+    renderReservations();
+    return;
+  }
+
+  reservation.paid_at = paidAt;
+  renderReservations();
+
+  const log = await logActivity("RESERVATION_MARKED_PAID", "reservation", reservation.id);
+  if (log.error) {
+    toast("Reservation marked as paid. The activity log could not be updated.");
+    return;
+  }
+
+  toast("Reservation for " + (reservation.customer_name || "guest") + " marked as paid.");
+  await loadActivity();
+}
+
 /* ── Modal ── */
 let modalCb = null;
 
@@ -1312,6 +1407,7 @@ function openModal(opts) {
   el.modalFields.innerHTML = "";
   el.modalInput.style.display = "none";
   el.modalConfirm.textContent = opts.confirmLabel || "Confirm";
+  el.modalCancel.textContent = opts.cancelLabel || "Cancel";
   modalCb = opts.onConfirm || null;
   el.modal.classList.add("open");
 }
@@ -1360,13 +1456,13 @@ function ordersSignature(rows) {
 function reservationsSignature(rows) {
   return (rows || []).map(function (r) {
     return [r.id, r.customer_name, r.phone, r.party_size, r.reservation_date,
-      r.reservation_time, r.notes, r.status].join("|");
+      r.reservation_time, r.notes, r.status, r.paid_at].join("|");
   }).join("~");
 }
 
 function activitySignature(rows) {
   return (rows || []).map(function (a) {
-    return [a.id, a.actor_email, a.action, a.target_type, a.target_id, a.created_at].join("|");
+    return [a.id, a.actor_email, a.action, a.target_type, a.target_id, a.note, a.created_at].join("|");
   }).join("~");
 }
 
@@ -1627,7 +1723,13 @@ function handleOrderUpdated(row, oldRow) {
 }
 
 function handleReservationUpdated(row) {
-  if (!row || row.status !== "CANCELLED" || row.cancelled_by !== "customer") return;
+  if (!row) return;
+
+  // A payment (or another change) arrived from another admin.
+  if (row.status !== "CANCELLED" || row.cancelled_by !== "customer") {
+    loadReservations({ silent: true });
+    return;
+  }
 
   const existing = state.reservations.find(function (r) {
     return String(r.id) === String(row.id);
@@ -1778,8 +1880,12 @@ function init() {
     });
     if (!reservation) return;
 
-    if (btn.getAttribute("data-action") === "confirm") {
+    const action = btn.getAttribute("data-action");
+
+    if (action === "confirm") {
       updateReservationStatus(reservation, "CONFIRMED");
+    } else if (action === "paid") {
+      confirmMarkReservationPaid(reservation);
     } else {
       confirmCancelReservation(reservation);
     }

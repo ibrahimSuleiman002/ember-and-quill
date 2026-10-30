@@ -1019,6 +1019,14 @@ body::after {
   gap: 0.75rem;
 }
 
+/* Status pill + Paid / Unpaid tag stay together on the right */
+.reservation-badges {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
 .reservation-name {
   margin-top: 0;
   min-width: 0;

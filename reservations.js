@@ -31,6 +31,7 @@
     ui.submit = $('reservationSubmit');
     ui.error = $('reservationError');
     ui.success = $('reservationSuccess');
+    ui.statusLine = $('reservationStatusLine');
   }
 
   // ── Dates ──
@@ -125,6 +126,57 @@
     ui.submit.disabled = isSubmitting;
     ui.submit.textContent = isSubmitting ? 'Sending request…' : 'Request Reservation';
     ui.submit.setAttribute('aria-busy', isSubmitting ? 'true' : 'false');
+  }
+
+  // ── Live reservation status ──
+
+  function isPaid(reservation) {
+    return !!(reservation && reservation.paid_at);
+  }
+
+  function reservationStatusText(reservation) {
+    var status = String((reservation && reservation.status) || '');
+
+    if (status === 'CANCELLED') return 'This reservation was cancelled.';
+    if (status === 'CONFIRMED') return 'Your reservation is confirmed';
+    if (isPaid(reservation)) return 'Payment received';
+    return 'Reservation received, waiting for payment';
+  }
+
+  function updateStatusLine(reservation) {
+    if (!ui.statusLine) return;
+    var text = reservationStatusText(reservation);
+    if (ui.statusLine.textContent !== text) ui.statusLine.textContent = text;
+  }
+
+  var reservationChannel = null;
+
+  function stopReservationWatch() {
+    if (reservationChannel && client) {
+      try {
+        client.removeChannel(reservationChannel);
+      } catch (err) {
+        /* ignore */
+      }
+    }
+    reservationChannel = null;
+  }
+
+  function watchReservation(id) {
+    stopReservationWatch();
+    if (!id || !client) return;
+
+    reservationChannel = client
+      .channel('reservation-live-' + id)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'reservations',
+        filter: 'id=eq.' + id
+      }, function (payload) {
+        if (payload && payload.new) updateStatusLine(payload.new);
+      })
+      .subscribe();
   }
 
   // ── Validation ──
@@ -277,6 +329,7 @@
         authUI.openLogin({
           tab: 'login',
           reason: 'Please log in to request a reservation. Your details are saved.',
+          showAddress: false,
           onSuccess: continueReservation
         });
       } else {
@@ -334,11 +387,35 @@
       return;
     }
 
+    // The reservation is saved: fill in any profile fields that are still
+    // missing, using what the customer just typed.
+    if (typeof authUI !== 'undefined' && authUI && typeof authUI.rememberCheckoutDetails === 'function') {
+      authUI.rememberCheckoutDetails(values.name, values.phone);
+    }
+
+    // Read the row back so the status line can follow this reservation.
+    stopReservationWatch();
+    var placed = null;
+    if (trackingCode) {
+      try {
+        var found = await client
+          .from('reservations')
+          .select('id, status, paid_at')
+          .eq('tracking_code', trackingCode)
+          .maybeSingle();
+        if (!found.error && found.data) placed = found.data;
+      } catch (err) {
+        placed = null;
+      }
+    }
+
     // Success: clear the form, restore tomorrow's date, show the code.
     ui.form.reset();
     setDateFloor();
     setDefaultDate();
+    updateStatusLine(placed || { status: 'PENDING', paid_at: null });
     showSuccess();
+    if (placed && placed.id) watchReservation(placed.id);
   }
 
   async function submitReservation(event) {

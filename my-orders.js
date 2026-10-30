@@ -41,6 +41,7 @@
   };
 
   var ORDER_STEPS = ['Received', 'Approved', 'Out for delivery'];
+  var RESERVATION_STEPS = ['Received', 'Confirmed'];
 
   function $(id) {
     return document.getElementById(id);
@@ -201,6 +202,36 @@
     return status === 'PENDING' || status === 'CONFIRMED';
   }
 
+  function isReservationPaid(reservation) {
+    return !!(reservation && reservation.paid_at);
+  }
+
+  function reservationStatusText(reservation) {
+    var status = String((reservation && reservation.status) || '');
+
+    if (status === 'CANCELLED') return 'This reservation was cancelled.';
+    if (status === 'CONFIRMED') return 'Your reservation is confirmed';
+    if (isReservationPaid(reservation)) return 'Payment received';
+    return 'Reservation received, waiting for payment';
+  }
+
+  function reservationProgressHtml(status) {
+    var terminal = status === 'CANCELLED';
+    var active = status === 'CONFIRMED' ? 1 : 0;
+
+    return '<div class="track-progress" aria-label="Reservation progress">' +
+      RESERVATION_STEPS.map(function (label, i) {
+        var cls = 'track-step';
+        if (i < active) cls += ' is-done';
+        else if (i === active) cls += ' is-done' + (terminal ? '' : ' is-current');
+        return '<div class="' + cls + '">' +
+          '<span class="track-dot" aria-hidden="true"></span>' +
+          '<span class="track-step-label">' + label + '</span>' +
+        '</div>';
+      }).join('') +
+    '</div>';
+  }
+
   function progressHtml(status) {
     var terminal = status === 'CANCELLED' || status === 'REJECTED';
     var active = statusIndex(status);
@@ -297,6 +328,15 @@
       ? '<div class="track-banner is-cancelled">This reservation was cancelled.</div>'
       : '';
 
+    var paidBadge = isReservationPaid(reservation)
+      ? '<span class="track-pill is-done">Payment received</span>'
+      : '';
+
+    var statusText = reservationStatusText(reservation);
+    var statusLine = banner.indexOf(statusText) === -1
+      ? '<p class="my-order-status">' + esc(statusText) + '</p>'
+      : '';
+
     var cancelHtml = canCancelReservation(reservation)
       ? '<div class="my-order-actions">' +
           '<button type="button" class="btn btn-danger" data-cancel-reservation="' + esc(reservation.id) + '">Cancel reservation</button>' +
@@ -309,8 +349,11 @@
         '<span class="track-pill ' + reservationPillClass(status) + '">' +
           esc(RESERVATION_LABELS[status] || status || 'Unknown') +
         '</span>' +
+        paidBadge +
       '</div>' +
+      statusLine +
       banner +
+      reservationProgressHtml(status) +
       '<dl class="track-detail-grid">' +
         '<dt>Guests</dt><dd>' + esc(guestsLabel(reservation.party_size)) + '</dd>' +
         '<dt>Date</dt><dd>' + esc(dateWords(reservation.reservation_date)) + '</dd>' +
@@ -473,7 +516,7 @@
           .order('created_at', { ascending: false })
           .limit(100),
         client.from('reservations')
-          .select('id, party_size, reservation_date, reservation_time, notes, status, tracking_code, created_at')
+          .select('id, party_size, reservation_date, reservation_time, notes, status, paid_at, tracking_code, created_at')
           .order('created_at', { ascending: false })
           .limit(100)
       ]);
@@ -594,12 +637,27 @@
 
     pendingCancel = { type: type, id: id };
 
+    var paidReservation = false;
+    if (type === 'reservation') {
+      var found = reservations.filter(function (r) {
+        return String(r.id) === String(id);
+      })[0];
+      paidReservation = !!(found && found.paid_at);
+    }
+
     if (ui.dialogTitle) {
       ui.dialogTitle.textContent = type === 'order'
         ? 'Cancel this order?'
         : 'Cancel this reservation?';
     }
-    if (ui.dialogBody) ui.dialogBody.textContent = 'Are you sure you want to cancel?';
+    if (ui.dialogBody) {
+      ui.dialogBody.textContent = paidReservation
+        ? 'Payment has already been made for this reservation. If you cancel, it will not be refunded. Are you sure you want to cancel?'
+        : 'Are you sure you want to cancel?';
+    }
+    if (ui.dialogYes) {
+      ui.dialogYes.textContent = paidReservation ? 'Yes, cancel (no refund)' : 'Yes, cancel';
+    }
 
     ui.dialog.hidden = false;
     document.body.classList.add('acct-lock');
@@ -616,6 +674,10 @@
 
   var RESULT_MESSAGES = {
     CANCELLED: { text: 'Cancelled successfully.', kind: 'success' },
+    CANCELLED_NO_REFUND: {
+      text: 'Reservation cancelled. Because payment had been made, no refund applies.',
+      kind: 'success'
+    },
     ALREADY_CANCELLED: { text: 'This is already cancelled.', kind: 'neutral' },
     PAID: {
       text: 'Payment has been received for this order, so it can no longer be cancelled online. Please call 07063134521.',
@@ -629,8 +691,12 @@
     NOT_LOGGED_IN: { text: 'Please log in again to continue.', kind: 'error' }
   };
 
-  function handleCancelResult(code) {
+  function handleCancelResult(code, type) {
     var result = RESULT_MESSAGES[code];
+
+    if (code === 'CANCELLED' && type === 'reservation') {
+      result = { text: 'Reservation cancelled.', kind: 'success' };
+    }
 
     if (!result) {
       showMessage('We could not cancel this just now. Please call 07063134521.', 'error');
@@ -644,7 +710,7 @@
       return;
     }
 
-    if (code === 'CANCELLED' || code === 'ALREADY_CANCELLED' || code === 'PAID' || code === 'TOO_LATE') {
+    if (code === 'CANCELLED' || code === 'CANCELLED_NO_REFUND' || code === 'ALREADY_CANCELLED' || code === 'PAID' || code === 'TOO_LATE') {
       loadAll();
     }
   }
@@ -680,7 +746,7 @@
       return;
     }
 
-    handleCancelResult(String(out.data == null ? '' : out.data));
+    handleCancelResult(String(out.data == null ? '' : out.data), target.type);
   }
 
   function openLogin(force) {

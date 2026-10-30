@@ -66,7 +66,9 @@
   }
 
   function displayName() {
-    return (profile && profile.full_name) || metadata().full_name || '';
+    return firstName(profile && profile.full_name) ||
+      firstName(metadata().full_name) ||
+      '';
   }
 
   function looksLikeEmail(value) {
@@ -153,6 +155,7 @@
 
     profile = cache;
     profileLoadedFor = user.id;
+    renderHeader();
 
     if (!client) return cache;
 
@@ -178,6 +181,32 @@
     return cache;
   }
 
+  // After an order or reservation is saved, keep the profile in step with
+  // the details the customer just typed. A saved name is never overwritten;
+  // only missing fields are filled in.
+  async function rememberCheckoutDetails(fullName, phone) {
+    try {
+      await ready;
+      if (!client || !user) return null;
+
+      var saved = await loadProfile(false);
+      var savedName = String((saved && saved.full_name) || '').trim();
+      var savedPhone = String((saved && saved.phone) || '').trim();
+      var nextName = savedName || String(fullName || '').trim();
+      var nextPhone = savedPhone || String(phone || '').trim();
+
+      if (nextName === savedName && nextPhone === savedPhone) return saved;
+
+      return await saveProfile({
+        full_name: nextName,
+        phone: nextPhone,
+        address: (saved && saved.address) || ''
+      });
+    } catch (err) {
+      return null;
+    }
+  }
+
   // ── Header ───────────────────────────────────────────────────
 
   function renderHeader() {
@@ -198,10 +227,10 @@
       navLinks.appendChild(existing);
     }
 
-    var name = firstName(displayName()) || firstName(emailOf().split('@')[0]);
+    var name = displayName();
 
     existing.innerHTML =
-      (name ? '<span class="nav-greeting">Hi, ' + esc(name) + '</span>' : '') +
+      '<span class="nav-greeting">' + (name ? 'Hi, ' + esc(name) : 'Hi') + '</span>' +
       '<a href="my-orders.html" data-requires-auth>My orders</a>' +
       '<button type="button" class="nav-logout" id="navLogout">Log out</button>';
 
@@ -210,6 +239,21 @@
   }
 
   // ── Login box markup ────────────────────────────────────────
+
+  function eyeButtonMarkup() {
+    return '' +
+      '<button type="button" class="pw-toggle" data-pw-toggle aria-label="Show password" tabindex="0">' +
+        '<svg class="pw-eye" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">' +
+          '<path d="M2.2 12S5.8 5.6 12 5.6 21.8 12 21.8 12 18.2 18.4 12 18.4 2.2 12 2.2 12Z"/>' +
+          '<circle cx="12" cy="12" r="2.7"/>' +
+        '</svg>' +
+        '<svg class="pw-eye-off" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">' +
+          '<path d="M2.2 12S5.8 5.6 12 5.6 21.8 12 21.8 12 18.2 18.4 12 18.4 2.2 12 2.2 12Z"/>' +
+          '<circle cx="12" cy="12" r="2.7"/>' +
+          '<path d="M4 3.8 20 20.2"/>' +
+        '</svg>' +
+      '</button>';
+  }
 
   function injectBox() {
     if ($('acctBox')) {
@@ -252,9 +296,19 @@
             '</div>' +
             '<div class="order-field">' +
               '<label for="acctPassword">Password</label>' +
-              '<input class="order-input" id="acctPassword" name="password" type="password" autocomplete="new-password" placeholder="At least 6 characters" minlength="6" required>' +
+              '<div class="pw-field">' +
+                '<input class="order-input" id="acctPassword" name="password" type="password" autocomplete="new-password" placeholder="At least 8 characters" minlength="8" required>' +
+                eyeButtonMarkup() +
+              '</div>' +
             '</div>' +
             '<div class="order-field">' +
+              '<label for="acctPassword2">Confirm your password</label>' +
+              '<div class="pw-field">' +
+                '<input class="order-input" id="acctPassword2" name="confirm_password" type="password" autocomplete="new-password" placeholder="Confirm your password" minlength="8" required>' +
+                eyeButtonMarkup() +
+              '</div>' +
+            '</div>' +
+            '<div class="order-field" id="acctAddressField">' +
               '<label for="acctAddress">Delivery address <span class="order-optional">(optional)</span></label>' +
               '<input class="order-input" id="acctAddress" name="address" type="text" autocomplete="street-address" placeholder="Street, area, city">' +
             '</div>' +
@@ -270,7 +324,10 @@
             '</div>' +
             '<div class="order-field">' +
               '<label for="acctLoginPassword">Password</label>' +
-              '<input class="order-input" id="acctLoginPassword" name="password" type="password" autocomplete="current-password" placeholder="Your password" required>' +
+              '<div class="pw-field">' +
+                '<input class="order-input" id="acctLoginPassword" name="password" type="password" autocomplete="current-password" placeholder="Your password" required>' +
+                eyeButtonMarkup() +
+              '</div>' +
             '</div>' +
             '<button type="submit" id="acctLoginBtn" class="btn btn-primary acct-submit">Log in</button>' +
             '<p class="acct-forgot"><button type="button" class="acct-link" id="acctForgot">Forgot password?</button></p>' +
@@ -311,6 +368,8 @@
     ui.phone = $('acctPhone');
     ui.email = $('acctEmail');
     ui.password = $('acctPassword');
+    ui.password2 = $('acctPassword2');
+    ui.addressField = $('acctAddressField');
     ui.address = $('acctAddress');
     ui.loginForm = $('acctLoginForm');
     ui.loginBtn = $('acctLoginBtn');
@@ -390,6 +449,43 @@
     });
   }
 
+  // ── Show / hide password ────────────────────────────────────
+
+  function bindPasswordToggles(root) {
+    if (!root || !root.querySelectorAll) return;
+
+    Array.prototype.forEach.call(root.querySelectorAll('.pw-toggle'), function (button) {
+      button.addEventListener('click', function (event) {
+        event.preventDefault();
+
+        var wrap = button.parentNode;
+        var input = wrap ? wrap.querySelector('input') : null;
+        if (!input) return;
+
+        var show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        button.classList.toggle('is-shown', show);
+        button.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      });
+    });
+  }
+
+  function resetPasswordToggles(root) {
+    if (!root || !root.querySelectorAll) return;
+
+    Array.prototype.forEach.call(root.querySelectorAll('.pw-field'), function (wrap) {
+      var input = wrap.querySelector('input');
+      var button = wrap.querySelector('.pw-toggle');
+
+      if (input) input.type = 'password';
+
+      if (button) {
+        button.classList.remove('is-shown');
+        button.setAttribute('aria-label', 'Show password');
+      }
+    });
+  }
+
   function switchTab(tab, focus) {
     var create = tab !== 'login';
 
@@ -459,6 +555,7 @@
     ui.forgotForm.reset();
     ui.forgotForm.hidden = true;
     ui.loginForm.hidden = false;
+    if (ui.addressField) ui.addressField.hidden = options.showAddress === false;
     if (options.email && ui.loginEmail) ui.loginEmail.value = options.email;
 
     switchTab(options.tab === 'login' ? 'login' : 'create', false);
@@ -480,7 +577,9 @@
 
     // Never leave a typed password sitting in the page after closing.
     if (ui.password) ui.password.value = '';
+    if (ui.password2) ui.password2.value = '';
     if (ui.loginPassword) ui.loginPassword.value = '';
+    resetPasswordToggles(ui.box);
 
     if (lastFocus && typeof lastFocus.focus === 'function') {
       try {
@@ -534,7 +633,7 @@
     if (msg.indexOf('already registered') >= 0 || msg.indexOf('already been registered') >= 0) {
       return 'An account with this email already exists. Please use Log in.';
     }
-    if (msg.indexOf('password should be at least') >= 0) return 'Your password must be at least 6 characters.';
+    if (msg.indexOf('password should be at least') >= 0) return 'Your password must be at least 8 characters.';
     if (msg.indexOf('rate limit') >= 0 || msg.indexOf('too many') >= 0) {
       return 'Too many attempts just now. Please wait a moment and try again.';
     }
@@ -551,7 +650,8 @@
       phone: ui.phone.value.trim(),
       email: ui.email.value.trim(),
       password: ui.password.value,
-      address: ui.address.value.trim()
+      confirm: ui.password2 ? ui.password2.value : '',
+      address: ui.addressField && ui.addressField.hidden ? '' : ui.address.value.trim()
     };
   }
 
@@ -562,7 +662,9 @@
     if (!values.email) return 'Please enter your email address.';
     if (!looksLikeEmail(values.email)) return 'Please enter a valid email address.';
     if (!values.password) return 'Please choose a password.';
-    if (values.password.length < 6) return 'Your password must be at least 6 characters.';
+    if (values.password.length < 8) return 'Your password must be at least 8 characters.';
+    if (!values.confirm) return 'Please confirm your password.';
+    if (values.password !== values.confirm) return 'Passwords do not match.';
     return null;
   }
 
@@ -893,6 +995,7 @@
 
   async function init() {
     injectBox();
+    bindPasswordToggles(document);
     bindAuthLinks();
 
     if (!client) {
@@ -938,6 +1041,7 @@
     },
     currentSession: currentSession,
     getProfile: getProfile,
+    rememberCheckoutDetails: rememberCheckoutDetails,
     isSessionError: isSessionError,
     recoverSession: recoverSession,
     promptSessionExpired: promptSessionExpired,

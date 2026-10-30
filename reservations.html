@@ -44,7 +44,7 @@
       <div class="text-panel">
         <p class="section-label">Request a Table</p>
         <h2 class="section-title">Reservation Details</h2>
-        <p class="section-text">Tell us when you'd like to visit and how many guests are coming. We'll confirm by phone.</p>
+        <p class="section-text">Tell us when you'd like to visit and how many guests are coming. We'll confirm it once payment is received.</p>
 
         <form id="reservationForm" class="order-form" novalidate>
           <div class="order-fields">
@@ -81,11 +81,11 @@
 
           <div id="reservationError" class="order-message order-error" role="alert" hidden></div>
           <div id="reservationSuccess" class="order-message order-success" role="status" aria-live="polite" tabindex="-1" hidden>
-            <p class="order-success-text">Reservation request received. We will confirm it shortly.</p>
+            <p class="order-success-text" id="reservationStatusLine">Reservation received, waiting for payment</p>
           </div>
 
           <button type="submit" id="reservationSubmit" class="btn btn-primary order-submit">Request Reservation</button>
-          <p class="order-note">No payment is needed to book. We'll confirm your table by phone.</p>
+          <p class="order-note">Payments for reservations are non-refundable if you cancel.</p>
         </form>
       </div>
     </section>

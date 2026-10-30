@@ -1069,6 +1069,63 @@ footer {
   border-color: var(--accent);
 }
 
+/* Password field with a show/hide eye button */
+.pw-field {
+  position: relative;
+}
+
+.pw-field .order-input {
+  padding-right: 3rem;
+}
+
+.pw-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  transform: translateY(-50%);
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.pw-toggle:hover {
+  color: var(--heading);
+}
+
+.pw-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+}
+
+.pw-toggle svg {
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.pw-toggle .pw-eye-off {
+  display: none;
+}
+
+.pw-toggle.is-shown .pw-eye {
+  display: none;
+}
+
+.pw-toggle.is-shown .pw-eye-off {
+  display: block;
+}
+
 /* Order summary */
 .order-summary-wrap {
   margin-bottom: 1.5rem;

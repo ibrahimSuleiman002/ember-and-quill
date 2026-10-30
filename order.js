@@ -512,6 +512,12 @@
       return;
     }
 
+    // The order is saved: fill in any profile fields that are still
+    // missing, using what the customer just typed.
+    if (typeof authUI !== 'undefined' && authUI && typeof authUI.rememberCheckoutDetails === 'function') {
+      authUI.rememberCheckoutDetails(values.name, values.phone);
+    }
+
     // Read the row back so the status line can follow this one order.
     stopOrderWatch();
     var placed = null;
