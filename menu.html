@@ -48,25 +48,7 @@
   <script src="supabase-config.js"></script>
   <script src="auth.js"></script>
   <script>
-    document.getElementById('menuContent').innerHTML = siteConfig.menu.map(cat => `
-      <section>
-        <div class="text-panel">
-          <h2 class="menu-category-title">${cat.category}</h2>
-          <div class="menu-cards">
-            ${cat.items.map(item => `
-              <article class="menu-card">
-                <img class="menu-card-img" src="images/${item.image}" alt="${item.name} — Ember & Quill menu photo" loading="lazy">
-                <div class="menu-card-body">
-                  <h3 class="menu-card-name">${item.name}</h3>
-                  <p class="menu-card-desc">${item.desc}</p>
-                  <div class="menu-card-price">${fmtPrice(item.price)}</div>
-                </div>
-              </article>
-            `).join('')}
-          </div>
-        </div>
-      </section>
-    `).join('');
+    document.getElementById('menuContent').innerHTML = renderMenuSections();
   </script>
 </body>
 </html>

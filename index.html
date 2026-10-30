@@ -39,6 +39,32 @@
 
   <main class="page-content">
 
+    <!-- Full Menu -->
+    <section id="full-menu">
+      <div class="text-panel" style="text-align:left; margin-bottom:3rem;">
+        <p class="section-label">Full Menu</p>
+        <h2 class="section-title">Our Menu</h2>
+      </div>
+      <div id="fullMenuContent"></div>
+      <div class="menu-cta">
+        <a href="order.html" class="btn btn-primary">Order Online</a>
+      </div>
+    </section>
+
+    <!-- Menu Highlights -->
+    <section id="menu">
+      <div class="text-panel">
+        <div style="text-align:left; margin-bottom:1.5rem;">
+          <p class="section-label">Menu Highlights</p>
+          <h2 class="section-title">Signature dishes from the fire</h2>
+        </div>
+        <ul class="menu-list" id="highlightsList"></ul>
+      </div>
+      <div class="menu-cta">
+        <a href="menu.html" class="btn btn-outline">View Full Menu</a>
+      </div>
+    </section>
+
     <!-- How to Order -->
     <section id="order">
       <div class="text-panel">
@@ -64,20 +90,6 @@
         <div style="text-align:center; margin-top:2rem;">
           <a href="order.html" class="btn btn-primary">Start Your Order</a>
         </div>
-      </div>
-    </section>
-
-    <!-- Menu Highlights -->
-    <section id="menu">
-      <div class="text-panel">
-        <div style="text-align:right; margin-bottom:1.5rem;">
-          <p class="section-label">Menu Highlights</p>
-          <h2 class="section-title">Signature dishes from the fire</h2>
-        </div>
-        <ul class="menu-list" id="highlightsList"></ul>
-      </div>
-      <div class="menu-cta">
-        <a href="menu.html" class="btn btn-outline">View Full Menu</a>
       </div>
     </section>
 
@@ -122,6 +134,8 @@
   <script>
     document.getElementById('heroWordmark').innerHTML = renderBrand();
     document.getElementById('heroTagline').textContent = siteConfig.tagline;
+
+    document.getElementById('fullMenuContent').innerHTML = renderMenuSections('landing');
 
     document.getElementById('highlightsList').innerHTML = siteConfig.highlights.map(d => `
       <li class="menu-item">

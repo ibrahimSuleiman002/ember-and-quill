@@ -109,6 +109,32 @@ function fmtPrice(n) {
   return siteConfig.currency + n.toLocaleString('en-NG');
 }
 
+// Shared full-menu renderer. menu.html and the landing page both call
+// this, so categories, dishes and prices come from siteConfig.menu only.
+// `variant === 'landing'` opts into the responsive photo-card grid.
+function renderMenuSections(variant) {
+  const cardsClass = variant === 'landing' ? 'menu-cards menu-cards--landing' : 'menu-cards';
+  return siteConfig.menu.map(cat => `
+    <section>
+      <div class="text-panel">
+        <h2 class="menu-category-title">${cat.category}</h2>
+        <div class="${cardsClass}">
+          ${cat.items.map(item => `
+            <article class="menu-card">
+              <img class="menu-card-img" src="images/${item.image}" alt="${item.name} — Ember & Quill menu photo" loading="lazy">
+              <div class="menu-card-body">
+                <h3 class="menu-card-name">${item.name}</h3>
+                <p class="menu-card-desc">${item.desc}</p>
+                <div class="menu-card-price">${fmtPrice(item.price)}</div>
+              </div>
+            </article>
+          `).join('')}
+        </div>
+      </div>
+    </section>
+  `).join('');
+}
+
 function getWhatsAppLink(message) {
   const waNumber = siteConfig.phoneIntl.replace('+', '');
   const msg = message || "Hello, I'd like to place an order.";
