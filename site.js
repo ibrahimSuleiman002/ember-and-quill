@@ -5,8 +5,8 @@
 function renderNav(activePage) {
   const pages = [
     { href: 'index.html', label: 'Home', key: 'home' },
-    { href: 'about.html', label: 'About', key: 'about' },
     { href: 'menu.html', label: 'Menu', key: 'menu' },
+    { href: 'about.html', label: 'About', key: 'about' },
     { href: 'gallery.html', label: 'Gallery', key: 'gallery' },
     { href: 'reservations.html', label: 'Reservations', key: 'reservations' },
     { href: 'contact.html', label: 'Contact', key: 'contact' }
