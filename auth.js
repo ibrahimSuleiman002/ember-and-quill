@@ -2,11 +2,10 @@
 //  auth.js — customer accounts + the shared login box
 //
 //  • No login UI is shown to visitors. The header only grows the
-//    "Hi, <first name> / My orders / Log out" block once a session
-//    exists.
+//    greeting, account link and Log out items once a session exists.
 //  • Visitors build their cart (localStorage) first. The login box
 //    opens only when they press Place Order or Request Reservation,
-//    or click "My orders" while logged out.
+//    or open the account page while logged out.
 //  • Passwords are only ever sent to Supabase Auth. They are never
 //    stored by our code, in localStorage or anywhere else.
 //  • Sessions persist across visits (supabase-js persistSession).
@@ -213,29 +212,47 @@
     var navLinks = $('navLinks');
     if (!navLinks) return;
 
-    var existing = $('navAccount');
+    // Remove the account items from a previous render. navAccount is the
+    // single block used by older versions; keep removing it for safety.
+    ['navAccount', 'navGreetingItem', 'navMyOrdersItem', 'navLogoutItem'].forEach(function (id) {
+      var el = $(id);
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+    });
 
-    if (!user) {
-      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
-      return;
-    }
-
-    if (!existing) {
-      existing = document.createElement('li');
-      existing.id = 'navAccount';
-      existing.className = 'nav-account';
-      navLinks.appendChild(existing);
-    }
+    if (!user) return;
 
     var name = displayName();
 
-    existing.innerHTML =
-      '<span class="nav-greeting">' + (name ? 'Hi, ' + esc(name) : 'Hi') + '</span>' +
-      '<a href="my-orders.html" data-requires-auth>My orders</a>' +
-      '<button type="button" class="nav-logout" id="navLogout">Log out</button>';
+    var greeting = document.createElement('li');
+    greeting.id = 'navGreetingItem';
+    greeting.className = 'nav-greeting-item';
+    greeting.innerHTML = '<span class="nav-greeting">' + (name ? 'Hi, ' + esc(name) : 'Hi') + '</span>';
+    if (navLinks.firstElementChild) {
+      navLinks.insertBefore(greeting, navLinks.firstElementChild);
+    } else {
+      navLinks.appendChild(greeting);
+    }
 
-    var logout = $('navLogout');
-    if (logout) logout.addEventListener('click', signOut);
+    var myOrders = document.createElement('li');
+    myOrders.id = 'navMyOrdersItem';
+    var active = document.body && document.body.getAttribute('data-page') === 'my-orders';
+    myOrders.innerHTML = '<a href="my-orders.html" data-requires-auth' +
+      (active ? ' class="active"' : '') +
+      '>My orders and reservations</a>';
+    var contactLink = navLinks.querySelector('a[href="contact.html"]');
+    if (contactLink && contactLink.parentNode) {
+      navLinks.insertBefore(myOrders, contactLink.parentNode);
+    } else {
+      navLinks.appendChild(myOrders);
+    }
+
+    var logout = document.createElement('li');
+    logout.id = 'navLogoutItem';
+    logout.innerHTML = '<button type="button" class="nav-logout" id="navLogout">Log out</button>';
+    navLinks.appendChild(logout);
+
+    var logoutBtn = $('navLogout');
+    if (logoutBtn) logoutBtn.addEventListener('click', signOut);
   }
 
   // ── Login box markup ────────────────────────────────────────

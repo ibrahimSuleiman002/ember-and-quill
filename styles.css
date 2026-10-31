@@ -91,13 +91,13 @@ nav {
   background-color: rgba(10, 7, 5, 0.95);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.75rem;
 }
 
 .nav-logo {
   font-family: 'Fraunces', serif;
-  font-size: 1.25rem;
+  font-size: 1.125rem;
   font-weight: 700;
   color: var(--heading);
   text-decoration: none;
@@ -110,18 +110,18 @@ nav {
 
 .nav-links {
   display: flex;
-  gap: 1.25rem;
+  gap: clamp(0.5rem, 0.65vw, 0.75rem);
   list-style: none;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .nav-links a {
   color: var(--text);
   text-decoration: none;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   font-weight: 600;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
   transition: color 0.2s ease;
   white-space: nowrap;
 }
@@ -134,7 +134,7 @@ nav {
 .nav-reserve {
   background-color: var(--accent);
   color: #1A0F08 !important;
-  padding: 0.5rem 1.25rem;
+  padding: 0.4rem 0.8rem;
   border-radius: 4px;
   font-weight: 700;
   transition: background-color 0.2s ease, transform 0.2s ease;
@@ -148,7 +148,7 @@ nav {
 .nav-order {
   background-color: transparent;
   color: var(--sage) !important;
-  padding: 0.5rem 1.25rem;
+  padding: 0.4rem 0.8rem;
   border-radius: 4px;
   font-weight: 700;
   border: 1.5px solid var(--sage);
@@ -172,7 +172,7 @@ nav {
 
 .nav-greeting {
   color: var(--sage);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   letter-spacing: 0.03em;
   white-space: nowrap;
@@ -182,7 +182,7 @@ nav {
 .nav-logout {
   color: var(--text);
   font-family: inherit;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   font-weight: 600;
   letter-spacing: 0.03em;
   white-space: nowrap;
@@ -998,10 +998,18 @@ footer {
   }
 }
 
+/* Small laptops: give the full nav a little more room. */
+@media (min-width: 1024px) and (max-width: 1199px) {
+  nav {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════
-   MOBILE NAV (below 768px)
+   MOBILE / TABLET NAV (below 1024px)
    ═══════════════════════════════════════════════════════════ */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .hamburger {
     display: block;
   }
@@ -1014,12 +1022,13 @@ footer {
     height: 100vh;
     background-color: var(--panel);
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
-    gap: 1.75rem;
+    gap: 1.25rem;
     transition: right 0.3s ease;
     border-left: 1px solid var(--border);
-    padding: 2rem;
+    padding: 5rem 2rem 2rem;
+    overflow-y: auto;
   }
 
   .nav-links.active {
@@ -1030,6 +1039,18 @@ footer {
     font-size: 1.125rem;
   }
 
+  .nav-greeting,
+  .nav-logout {
+    font-size: 1.125rem;
+  }
+
+  .nav-order,
+  .nav-reserve {
+    padding: 0.5rem 1.25rem;
+  }
+}
+
+@media (max-width: 767px) {
   .menu-item {
     flex-direction: column;
     gap: 0.25rem;
@@ -1976,6 +1997,22 @@ body.acct-lock {
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--heading);
+}
+
+.my-orders-tabs {
+  margin-top: 1.25rem;
+}
+
+.my-orders-panel[hidden] {
+  display: none;
+}
+
+.my-orders-panel .my-orders-head {
+  margin-top: 0;
+}
+
+.my-orders-empty .btn {
+  margin-top: 0.75rem;
 }
 
 .my-order-date {

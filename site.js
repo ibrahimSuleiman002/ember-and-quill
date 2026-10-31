@@ -8,7 +8,6 @@ function renderNav(activePage) {
     { href: 'menu.html', label: 'Menu', key: 'menu' },
     { href: 'about.html', label: 'About', key: 'about' },
     { href: 'gallery.html', label: 'Gallery', key: 'gallery' },
-    { href: 'reservations.html', label: 'Reservations', key: 'reservations' },
     { href: 'contact.html', label: 'Contact', key: 'contact' }
   ];
 
@@ -44,8 +43,6 @@ function renderFooter() {
           <li><a href="menu.html">Menu</a></li>
           <li><a href="gallery.html">Gallery</a></li>
           <li><a href="reservations.html">Reservations</a></li>
-          <li><a href="my-orders.html" data-requires-auth>My orders</a></li>
-          <li><a href="my-orders.html" data-requires-auth>Cancel order</a></li>
           <li><a href="contact.html">Contact</a></li>
           <li><a href="privacy.html">Privacy Policy</a></li>
         </ul>
@@ -81,8 +78,9 @@ function initChrome(activePage) {
   const copy = document.getElementById('footerCopy');
   if (copy) copy.innerHTML = `&copy; ${new Date().getFullYear()} ${siteConfig.name}. All rights reserved. | ${siteConfig.phone}`;
 
-  // Customer account block: nothing for visitors, "Hi, <name> / My orders /
-  // Log out" once auth.js has restored a session.
+  // Customer account items: nothing for visitors. Once auth.js has restored
+  // a session it adds the greeting first, the account link after Gallery,
+  // and Log out last.
   if (window.authUI && typeof window.authUI.mountHeader === 'function') {
     window.authUI.mountHeader();
   }

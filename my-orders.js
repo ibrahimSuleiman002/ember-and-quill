@@ -21,6 +21,7 @@
   var loading = false;
   var reloadAgain = false;
   var lastLoadOk = false;      // true only when the last load returned without errors
+  var activeTab = null;        // 'orders' | 'reservations'
   var ui = {};
 
   var ORDER_LABELS = {
@@ -152,6 +153,40 @@
     var suffix = m[3] ? m[3].toUpperCase() : (hours >= 12 ? 'PM' : 'AM');
     var h12 = hours % 12 || 12;
     return h12 + ':' + minutes + ' ' + suffix;
+  }
+
+  function timestamp(value) {
+    var t = new Date(value || '').getTime();
+    return isNaN(t) ? 0 : t;
+  }
+
+  function reservationHeading(reservation) {
+    var rawDate = String((reservation && reservation.reservation_date) || '');
+    var time = timeWords(reservation && reservation.reservation_time);
+    var dateLabel = '';
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(rawDate);
+
+    if (m) {
+      var d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+      if (!isNaN(d.getTime())) {
+        try {
+          dateLabel = d.toLocaleDateString('en-GB', {
+            weekday: 'short',
+            day: 'numeric',
+            month: 'short'
+          }).replace(',', '');
+        } catch (err) {
+          dateLabel = d.toDateString();
+        }
+      }
+    }
+
+    if (!dateLabel) dateLabel = rawDate;
+
+    var parts = ['Reservation'];
+    if (dateLabel) parts.push(dateLabel);
+    if (time && time !== '—') parts.push(time);
+    return parts.join(', ');
   }
 
   function orderPillClass(status) {
@@ -345,7 +380,7 @@
 
     return '<article class="track-card">' +
       '<div class="track-card-head">' +
-        '<h2 class="track-card-title">Reservation</h2>' +
+        '<h2 class="track-card-title">' + esc(reservationHeading(reservation)) + '</h2>' +
         '<span class="track-pill ' + reservationPillClass(status) + '">' +
           esc(RESERVATION_LABELS[status] || status || 'Unknown') +
         '</span>' +
@@ -364,35 +399,95 @@
     '</article>';
   }
 
+  function tabButton(key, label, active) {
+    return '<button type="button" class="acct-tab' + (active ? ' is-active' : '') + '"' +
+      ' data-my-tab="' + key + '" role="tab" aria-selected="' + (active ? 'true' : 'false') + '"' +
+      ' aria-controls="my-' + key + '-panel">' + label + '</button>';
+  }
+
+  function panelHtml(key, heading, body, empty, active) {
+    return '<div class="my-orders-panel" id="my-' + key + '-panel" data-my-panel="' + key + '"' +
+      ' role="tabpanel"' + (active ? '' : ' hidden') + '>' +
+      '<div class="my-orders-head"><h2>' + heading + '</h2></div>' +
+      (body || empty) +
+    '</div>';
+  }
+
+  function emptyOrdersHtml() {
+    return '<div class="my-orders-empty">' +
+      '<p class="track-empty">You have no orders yet</p>' +
+      '<a href="order.html" class="btn btn-primary">Order online</a>' +
+    '</div>';
+  }
+
+  function emptyReservationsHtml() {
+    return '<div class="my-orders-empty">' +
+      '<p class="track-empty">You have no reservations yet</p>' +
+      '<a href="reservations.html" class="btn btn-primary">Reserve a table</a>' +
+    '</div>';
+  }
+
+  function newestTab() {
+    if (!orders.length && !reservations.length) return 'orders';
+    if (!orders.length) return 'reservations';
+    if (!reservations.length) return 'orders';
+
+    var newestOrder = orders.reduce(function (max, order) {
+      return Math.max(max, timestamp(order.created_at));
+    }, 0);
+    var newestReservation = reservations.reduce(function (max, reservation) {
+      return Math.max(max, timestamp(reservation.created_at));
+    }, 0);
+
+    return newestReservation > newestOrder ? 'reservations' : 'orders';
+  }
+
+  function setTab(tab) {
+    if (tab !== 'orders' && tab !== 'reservations') return;
+    activeTab = tab;
+
+    var tabs = ui.list.querySelectorAll('[data-my-tab]');
+    Array.prototype.forEach.call(tabs, function (btn) {
+      var on = btn.getAttribute('data-my-tab') === tab;
+      btn.classList.toggle('is-active', on);
+      btn.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+
+    var panels = ui.list.querySelectorAll('[data-my-panel]');
+    Array.prototype.forEach.call(panels, function (panel) {
+      panel.hidden = panel.getAttribute('data-my-panel') !== tab;
+    });
+  }
+
   function render() {
     if (!ui.list) return;
 
-    var entries = [];
-
-    orders.forEach(function (order) {
-      entries.push({ type: 'order', at: order.created_at, row: order });
-    });
-    reservations.forEach(function (reservation) {
-      entries.push({ type: 'reservation', at: reservation.created_at, row: reservation });
-    });
-
-    entries.sort(function (a, b) {
-      var ta = new Date(a.at || '').getTime() || 0;
-      var tb = new Date(b.at || '').getTime() || 0;
-      return tb - ta;
-    });
-
-    if (!entries.length) {
-      ui.list.innerHTML = lastLoadOk
-        ? '<p class="track-empty">You have no orders or reservations yet. ' +
-          '<a href="order.html">Order online</a> or <a href="reservations.html">book a table</a>.</p>'
-        : '';
+    if (!lastLoadOk) {
+      ui.list.innerHTML = '';
       return;
     }
 
-    ui.list.innerHTML = entries.map(function (entry) {
-      return entry.type === 'order' ? orderCard(entry.row) : reservationCard(entry.row);
-    }).join('');
+    var sortedOrders = orders.slice().sort(function (a, b) {
+      return timestamp(b.created_at) - timestamp(a.created_at);
+    });
+    var sortedReservations = reservations.slice().sort(function (a, b) {
+      return timestamp(b.created_at) - timestamp(a.created_at);
+    });
+
+    if (activeTab !== 'orders' && activeTab !== 'reservations') {
+      activeTab = newestTab();
+    }
+
+    var ordersBody = sortedOrders.map(orderCard).join('');
+    var reservationsBody = sortedReservations.map(reservationCard).join('');
+
+    ui.list.innerHTML =
+      '<div class="acct-tabs my-orders-tabs" role="tablist" aria-label="Orders and reservations">' +
+        tabButton('orders', 'Orders', activeTab === 'orders') +
+        tabButton('reservations', 'Reservations', activeTab === 'reservations') +
+      '</div>' +
+      panelHtml('orders', 'Orders (' + sortedOrders.length + ')', ordersBody, emptyOrdersHtml(), activeTab === 'orders') +
+      panelHtml('reservations', 'Reservations (' + sortedReservations.length + ')', reservationsBody, emptyReservationsHtml(), activeTab === 'reservations');
   }
 
   // ── Messages / toast ───────────────────────────────────────
@@ -777,6 +872,12 @@
     }
 
     ui.list.addEventListener('click', function (event) {
+      var tabBtn = event.target.closest ? event.target.closest('[data-my-tab]') : null;
+      if (tabBtn) {
+        setTab(tabBtn.getAttribute('data-my-tab'));
+        return;
+      }
+
       var orderBtn = event.target.closest ? event.target.closest('[data-cancel-order]') : null;
       if (orderBtn) {
         askCancel('order', orderBtn.getAttribute('data-cancel-order'));
@@ -826,6 +927,7 @@
           orders = [];
           reservations = [];
           statuses = {};
+          activeTab = null;
           lastLoadOk = false;
           hideMessage();
           render();
@@ -857,7 +959,6 @@
 
     if (!authUI.isLoggedIn()) {
       // No popup on entry: the gate offers the same login box on demand.
-      // (The footer link opens it directly when a visitor asks for My orders.)
       showGate(true);
       return;
     }
