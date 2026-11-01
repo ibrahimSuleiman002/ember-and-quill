@@ -15,6 +15,8 @@
 
   // Cart lines: { name, price, qty }
   var cart = [];
+  var menuItems = [];
+  var menuByName = {};
   var ui = {};
 
   function $(id) {
@@ -23,6 +25,7 @@
 
   function cacheElements() {
     ui.menu = $('orderMenu');
+    ui.menuNotice = $('orderMenuNotice');
     ui.form = $('orderForm');
     ui.name = $('orderName');
     ui.phone = $('orderPhone');
@@ -50,13 +53,65 @@
   }
 
   function menuItemByName(name) {
-    for (var c = 0; c < siteConfig.menu.length; c++) {
-      var items = siteConfig.menu[c].items;
-      for (var i = 0; i < items.length; i++) {
-        if (items[i].name === name) return items[i];
+    return menuByName[name] || null;
+  }
+
+  function setMenuItems(items) {
+    menuItems = items || [];
+    menuByName = {};
+    menuItems.forEach(function (item) {
+      menuByName[item.name] = item;
+    });
+  }
+
+  function showMenuNotice(message) {
+    if (!ui.menuNotice) return;
+    ui.menuNotice.textContent = message;
+    ui.menuNotice.hidden = false;
+  }
+
+  function hideMenuNotice() {
+    if (!ui.menuNotice) return;
+    ui.menuNotice.hidden = true;
+    ui.menuNotice.textContent = '';
+  }
+
+  // A dish that becomes unavailable is removed from the saved cart and
+  // the customer is told exactly which line disappeared.
+  function reconcileCart() {
+    var removed = [];
+    var seen = {};
+
+    cart = cart.filter(function (line) {
+      var item = menuItemByName(line.name);
+      if (!item || !item.available) {
+        if (!seen[line.name]) {
+          seen[line.name] = true;
+          removed.push(line.name);
+        }
+        return false;
       }
+      line.price = item.price;
+      return true;
+    });
+
+    if (removed.length) {
+      saveCart();
+      renderCart();
+      showMenuNotice(
+        'Removed from your order because ' + (removed.length === 1 ? 'it is' : 'they are') +
+        ' no longer available: ' + removed.join(', ') + '.'
+      );
+    } else {
+      hideMenuNotice();
     }
-    return null;
+  }
+
+  function menuErrorHtml() {
+    return '<div class="menu-load-error" role="alert">' +
+      '<strong>We could not load the menu right now.</strong>' +
+      '<p>Please refresh the page or try again in a moment.</p>' +
+    '</div>';
   }
 
   // ── Cart state ──
@@ -103,15 +158,13 @@
     saved.forEach(function (entry) {
       if (!entry || typeof entry.name !== 'string') return;
 
-      var item = menuItemByName(entry.name);
-      if (!item) return;
-
       var qty = Math.floor(Number(entry.qty));
       if (!isFinite(qty) || qty < 1) return;
 
+      var price = Number(entry.price);
       restored.push({
-        name: item.name,
-        price: item.price,
+        name: entry.name,
+        price: isFinite(price) ? price : 0,
         qty: Math.min(qty, 99)
       });
     });
@@ -138,7 +191,10 @@
 
   function changeQty(name, delta) {
     var item = menuItemByName(name);
-    if (!item) return;
+    if (!item || !item.available) {
+      showMenuNotice('This dish is currently unavailable.');
+      return;
+    }
 
     var line = lineFor(name);
     if (!line) {
@@ -163,19 +219,23 @@
   // ── Rendering ──
 
   function renderMenuCard(item) {
+    var unavailable = !item.available;
     var name = esc(item.name);
+    var src = window.eqMenu ? window.eqMenu.imageSrc(item) : '';
+
     return '' +
-      '<article class="menu-card">' +
-        '<img class="menu-card-img" src="images/' + esc(item.image) + '" alt="' + name + ' — Ember & Quill menu photo" loading="lazy">' +
+      '<article class="menu-card' + (unavailable ? ' menu-card--unavailable' : '') + '">' +
+        (src ? '<img class="menu-card-img" src="' + esc(src) + '" alt="' + name + ' — Ember & Quill menu photo" loading="lazy">' : '') +
         '<div class="menu-card-body">' +
+          (unavailable ? '<span class="menu-unavailable-badge">Unavailable</span>' : '') +
           '<h3 class="menu-card-name">' + name + '</h3>' +
-          '<p class="menu-card-desc">' + esc(item.desc) + '</p>' +
+          '<p class="menu-card-desc">' + esc(item.description) + '</p>' +
           '<div class="menu-card-footer">' +
             '<span class="menu-card-price">' + fmtPrice(item.price) + '</span>' +
             '<div class="qty-stepper" role="group" aria-label="Quantity for ' + name + '">' +
-              '<button type="button" class="qty-btn" data-action="minus" data-item-name="' + name + '" aria-label="Remove one ' + name + '">&minus;</button>' +
+              '<button type="button" class="qty-btn" data-action="minus" data-item-name="' + name + '" aria-label="Remove one ' + name + '" disabled>&minus;</button>' +
               '<span class="qty-value" data-item-name="' + name + '" aria-live="polite">0</span>' +
-              '<button type="button" class="qty-btn" data-action="plus" data-item-name="' + name + '" aria-label="Add one ' + name + '">+</button>' +
+              '<button type="button" class="qty-btn" data-action="plus" data-item-name="' + name + '" aria-label="Add one ' + name + '"' + (unavailable ? ' disabled' : '') + '>+</button>' +
             '</div>' +
           '</div>' +
         '</div>' +
@@ -185,7 +245,14 @@
   function renderMenu() {
     if (!ui.menu) return;
 
-    ui.menu.innerHTML = siteConfig.menu.map(function (category) {
+    if (!menuItems.length) {
+      ui.menu.innerHTML = '<p class="order-empty">No dishes are available right now.</p>';
+      return;
+    }
+
+    var groups = window.eqMenu ? window.eqMenu.group(menuItems) : [];
+
+    ui.menu.innerHTML = groups.map(function (category) {
       return '' +
         '<div class="menu-category">' +
           '<h3 class="menu-category-title">' + esc(category.category) + '</h3>' +
@@ -205,8 +272,41 @@
     });
 
     ui.menu.querySelectorAll('[data-action="minus"]').forEach(function (btn) {
+      var item = menuItemByName(btn.getAttribute('data-item-name'));
       var line = lineFor(btn.getAttribute('data-item-name'));
-      btn.disabled = !line || line.qty <= 0;
+      btn.disabled = !item || !item.available || !line || line.qty <= 0;
+    });
+
+    ui.menu.querySelectorAll('[data-action="plus"]').forEach(function (btn) {
+      var item = menuItemByName(btn.getAttribute('data-item-name'));
+      btn.disabled = !item || !item.available;
+    });
+  }
+
+  function applyMenu(items) {
+    setMenuItems(items);
+    reconcileCart();
+    renderMenu();
+    renderMenuQuantities();
+    renderCart();
+  }
+
+  function handleMenuData(items, error) {
+    if (error) {
+      menuItems = [];
+      menuByName = {};
+      if (ui.menu) ui.menu.innerHTML = menuErrorHtml();
+      return;
+    }
+    applyMenu(items);
+  }
+
+  function refreshMenuAfterUnavailable() {
+    if (!window.eqMenu) return;
+    window.eqMenu.load().then(function (items) {
+      applyMenu(items);
+    }).catch(function () {
+      /* The regular 30s/focus refresh will try again. */
     });
   }
 
@@ -423,6 +523,11 @@
       : false;
   }
 
+  function isUnavailableError(error) {
+    var message = (error && (error.message || error.details || error.hint)) || '';
+    return /one or more dishes are unavailable/i.test(message);
+  }
+
   async function insertOrder(payload) {
     try {
       var result = await client.from('orders').insert(payload);
@@ -439,6 +544,22 @@
     var problem = validate(values);
     if (problem) {
       showError(problem.message, problem.field);
+      return;
+    }
+
+    if (!menuItems.length) {
+      showError('The menu is still loading. Please wait a moment and try again.');
+      return;
+    }
+
+    var unavailable = cartLines().filter(function (line) {
+      var item = menuItemByName(line.name);
+      return !item || !item.available;
+    });
+
+    if (unavailable.length) {
+      reconcileCart();
+      showError('One or more dishes are unavailable. Please review your order and try again.');
       return;
     }
 
@@ -500,6 +621,12 @@
     if (error) {
       console.error('Order insert failed:', error);
       setSubmitting(false);
+
+      if (isUnavailableError(error)) {
+        showError('One or more dishes are unavailable. Please review your order and try again.');
+        refreshMenuAfterUnavailable();
+        return;
+      }
 
       // Only here — after a real 401 and a failed refresh — ask for a login.
       if (isSessionError(error) && typeof authUI !== 'undefined' && authUI && authUI.promptSessionExpired) {
@@ -573,9 +700,14 @@
 
     cart = loadCart();
 
-    renderMenu();
+    if (ui.menu) ui.menu.innerHTML = '<p class="menu-loading">Loading menu…</p>';
     renderCart();
-    renderMenuQuantities();
+
+    if (window.eqMenu) {
+      window.eqMenu.watch(handleMenuData);
+    } else {
+      handleMenuData(null, new Error('The menu could not be loaded.'));
+    }
 
     ui.menu.addEventListener('click', function (event) {
       var btn = event.target.closest ? event.target.closest('.qty-btn') : null;

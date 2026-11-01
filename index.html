@@ -135,17 +135,33 @@
     document.getElementById('heroWordmark').innerHTML = renderBrand();
     document.getElementById('heroTagline').textContent = siteConfig.tagline;
 
-    document.getElementById('fullMenuContent').innerHTML = renderMenuSections('landing');
+    var fullMenuMount = document.getElementById('fullMenuContent');
+    var highlightsMount = document.getElementById('highlightsList');
 
-    document.getElementById('highlightsList').innerHTML = siteConfig.highlights.map(d => `
-      <li class="menu-item">
-        <div class="menu-item-info">
-          <div class="menu-item-name">${d.name}</div>
-          <div class="menu-item-desc">${d.desc}</div>
-        </div>
-        <div class="menu-item-price">${fmtPrice(d.price)}</div>
-      </li>
-    `).join('');
+    function showMenuError() {
+      var message = '<div class="menu-load-error" role="alert">' +
+        '<strong>We could not load the menu right now.</strong>' +
+        '<p>Please refresh the page or try again in a moment.</p>' +
+      '</div>';
+      fullMenuMount.innerHTML = message;
+      highlightsMount.innerHTML = '<li class="menu-load-error" role="alert">Menu unavailable right now.</li>';
+    }
+
+    fullMenuMount.innerHTML = '<p class="menu-loading">Loading menu…</p>';
+    highlightsMount.innerHTML = '<li class="menu-loading">Loading menu…</li>';
+
+    if (window.eqMenu) {
+      window.eqMenu.watch(function (items, error) {
+        if (error) {
+          showMenuError();
+          return;
+        }
+        fullMenuMount.innerHTML = renderMenuSections(items, 'landing');
+        highlightsMount.innerHTML = window.eqMenu.renderHighlights(items, siteConfig.highlights);
+      });
+    } else {
+      showMenuError();
+    }
 
     document.getElementById('reviewsGrid').innerHTML = siteConfig.reviews.map(r => `
       <div class="review-card">

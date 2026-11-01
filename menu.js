@@ -20,69 +20,15 @@ const siteConfig = {
     { days: "Sunday", time: "11:00 AM – 9:00 PM" }
   ],
 
-  // Menu — all items in one place. `image` is the file in /images (placeholder photos).
-  menu: [
-    {
-      category: "Starters",
-      items: [
-        { name: "Suya-Spiced Wings", desc: "Crispy chicken wings in suya pepper, charred spring onion", price: 4500, image: "suya-wings.jpg" },
-        { name: "Pepper Snails", desc: "Tender snails simmered in uziza and bonnet pepper", price: 6500, image: "pepper-snails.jpg" },
-        { name: "Chin Chin Basket", desc: "Crunchy fried dough, suya dust, pepper dip", price: 3500, image: "chin-chin.jpg" },
-        { name: "Grilled Prawn Skewers", desc: "Tiger prawns, palm oil rub, lime crema", price: 7500, image: "grilled-prawns.jpg" }
-      ]
-    },
-    {
-      category: "From the Fire",
-      items: [
-        { name: "Full Chicken Suya", desc: "Free-range chicken, yaji spice, smoked bone marrow", price: 9500, image: "chicken-suya.jpg" },
-        { name: "Goat Meat Pepper Soup", desc: "Slow-brewed goat, uziza, scent leaf, native pepper", price: 8500, image: "goat-pepper-soup.jpg" },
-        { name: "Grilled Catfish", desc: "Whole catfish, chermoula, charred lemon", price: 12500, image: "grilled-catfish.jpg" },
-        { name: "Ember-Grilled Ribeye", desc: "45-day dry-aged, smoked marrow, charred scallion", price: 18000, image: "ribeye.jpg" }
-      ]
-    },
-    {
-      category: "Mains",
-      items: [
-        { name: "Jollof Rice & Grilled Chicken", desc: "Smoky party jollof, obokun pepper, fried plantain", price: 8500, image: "jollof-rice.jpg" },
-        { name: "Banga Soup & Starch", desc: "Fresh palm fruit soup, assorted meat, seafood", price: 9500, image: "banga-soup.jpg" },
-        { name: "Egusi Soup & Pounded Yam", desc: "Melon seed soup, bitter leaf, goat meat", price: 10500, image: "egusi-soup.jpg" },
-        { name: "Quill & Ink Pasta", desc: "Squid ink tagliatelle, chili oil, lemon breadcrumbs", price: 12500, image: "ink-pasta.jpg" },
-        { name: "Seafood Okra Soup", desc: "Okra, prawns, periwinkles, locust beans", price: 11000, image: "seafood-okra.jpg" },
-        { name: "Premium Striploin", desc: "500g striploin, bone marrow jus, garden herb salad", price: 25000, image: "striploin.jpg" }
-      ]
-    },
-    {
-      category: "Desserts",
-      items: [
-        { name: "Smoked Plantain & Ice Cream", desc: "Caramelized plantain, coconut ice cream, palm sugar", price: 4000, image: "plantain-ice-cream.jpg" },
-        { name: "Chin Chin Cheesecake", desc: "Crunchy base, zobo compote, whipped cream", price: 5500, image: "chin-chin-cheesecake.jpg" },
-        { name: "Puff Puff & Pepper Sugar", desc: "Warm puff puff, chilli sugar, honey drizzle", price: 3000, image: "puff-puff.jpg" },
-        { name: "Akara Waffles", desc: "Bean flour waffles, caramelized banana, groundnut crumble", price: 4500, image: "akara-waffles.jpg" }
-      ]
-    },
-    {
-      category: "Drinks",
-      items: [
-        { name: "Zobo Spritz", desc: "Hibiscus, ginger, lime, soda", price: 3000, image: "zobo-spritz.jpg" },
-        { name: "Chapman", desc: "Fanta, Sprite, grenadine, cucumber, angostura", price: 2500, image: "chapman.jpg" },
-        { name: "Fresh Mango Juice", desc: "Ripe mangoes, blended fresh", price: 2000, image: "mango-juice.jpg" },
-        { name: "Hibiscus Cooler", desc: "Zobo, mint, lime, sparkling water", price: 1500, image: "hibiscus-cooler.jpg" },
-        { name: "The Quill's Old Fashioned", desc: "Rye whiskey, smoked maple, bitters, orange oils", price: 8000, image: "old-fashioned.jpg" },
-        { name: "Palm Wine Sangria", desc: "Palm wine, seasonal fruit, brandy, herbs", price: 6500, image: "palm-wine-sangria.jpg" },
-        { name: "Suya Spice Margarita", desc: "Tequila, triple sec, lime, yaji salt rim", price: 7500, image: "margarita.jpg" },
-        { name: "Ginger Beer", desc: "House-made ginger beer, lime, mint", price: 1800, image: "ginger-beer.jpg" }
-      ]
-    }
-  ],
-
-  // Home page highlights (6 dishes) — images mirror the menu entries
+  // Home page highlights. The dish details themselves come from the
+  // public.menu_public view, so availability is always current.
   highlights: [
-    { name: "Ember-Grilled Ribeye", desc: "45-day dry-aged, smoked marrow, charred scallion", price: 18000, image: "ribeye.jpg" },
-    { name: "Full Chicken Suya", desc: "Free-range chicken, yaji spice, smoked bone marrow", price: 9500, image: "chicken-suya.jpg" },
-    { name: "Grilled Catfish", desc: "Whole catfish, chermoula, charred lemon", price: 12500, image: "grilled-catfish.jpg" },
-    { name: "Jollof Rice & Grilled Chicken", desc: "Smoky party jollof, obokun pepper, fried plantain", price: 8500, image: "jollof-rice.jpg" },
-    { name: "Smoked Plantain & Ice Cream", desc: "Caramelized plantain, coconut ice cream, palm sugar", price: 4000, image: "plantain-ice-cream.jpg" },
-    { name: "The Quill's Old Fashioned", desc: "Rye whiskey, smoked maple, bitters, orange oils", price: 8000, image: "old-fashioned.jpg" }
+    "Ember-Grilled Ribeye",
+    "Full Chicken Suya",
+    "Grilled Catfish",
+    "Jollof Rice & Grilled Chicken",
+    "Smoked Plantain & Ice Cream",
+    "The Quill's Old Fashioned"
   ],
 
   // Reviews
@@ -92,3 +38,197 @@ const siteConfig = {
     { name: "Ngozi", rating: 4, text: "Great atmosphere and the jollof rice is the real deal. Will definitely be back with friends." }
   ]
 };
+
+// ═══════════════════════════════════════════════════════════════
+//  Public menu — reads the customer-safe public.menu_public view
+// ═══════════════════════════════════════════════════════════════
+
+(function () {
+  'use strict';
+
+  var PUBLIC_COLUMNS = 'id, slug, name, category, description, price, image_url, available, sort_order';
+  var REFRESH_MS = 30000;
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
+      return {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[ch];
+    });
+  }
+
+  function imageSrc(item) {
+    var raw = String((item && (item.image_url || item.image)) || '').trim();
+    if (!raw) return '';
+    if (/^(?:https?:)?\/\//i.test(raw) || raw.charAt(0) === '/' || raw.indexOf('images/') === 0) {
+      return raw;
+    }
+    return 'images/' + raw;
+  }
+
+  function priceText(value) {
+    var amount = Number(value) || 0;
+    if (typeof window.fmtPrice === 'function') return window.fmtPrice(amount);
+    return (siteConfig.currency || '₦') + amount.toLocaleString('en-NG');
+  }
+
+  function normalize(row) {
+    var price = Number(row.price);
+    return {
+      id: row.id,
+      slug: String(row.slug || ''),
+      name: String(row.name || ''),
+      category: String(row.category || 'Menu'),
+      description: String(row.description || ''),
+      price: isFinite(price) ? price : 0,
+      image_url: imageSrc(row),
+      available: row.available !== false,
+      sort_order: Number(row.sort_order) || 0
+    };
+  }
+
+  function load() {
+    if (!window.eqSupabase) {
+      return Promise.reject(new Error('The menu service is not available.'));
+    }
+
+    try {
+      return Promise.resolve(
+        window.eqSupabase
+          .from('menu_public')
+          .select(PUBLIC_COLUMNS)
+          .order('sort_order', { ascending: true })
+          .order('name', { ascending: true })
+      ).then(function (result) {
+        if (!result || result.error) {
+          throw (result && result.error) || new Error('The menu could not be loaded.');
+        }
+
+        var rows = result.data || [];
+        if (!rows.length) throw new Error('The menu is being updated.');
+
+        return rows.map(normalize).sort(function (a, b) {
+          if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+          return a.name.localeCompare(b.name);
+        });
+      });
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  function group(items) {
+    var groups = [];
+    var byCategory = {};
+
+    (items || []).forEach(function (item) {
+      var category = item.category || 'Menu';
+      if (!byCategory[category]) {
+        byCategory[category] = { category: category, items: [] };
+        groups.push(byCategory[category]);
+      }
+      byCategory[category].items.push(item);
+    });
+
+    return groups;
+  }
+
+  function card(item, variant) {
+    var unavailable = !item.available;
+    var name = escapeHtml(item.name);
+    var src = imageSrc(item);
+
+    return '' +
+      '<article class="menu-card' + (unavailable ? ' menu-card--unavailable' : '') + '" data-menu-slug="' + escapeHtml(item.slug) + '">' +
+        (src ? '<img class="menu-card-img" src="' + escapeHtml(src) + '" alt="' + name + ' — Ember & Quill menu photo" loading="lazy">' : '') +
+        '<div class="menu-card-body">' +
+          (unavailable ? '<span class="menu-unavailable-badge">Unavailable</span>' : '') +
+          '<h3 class="menu-card-name">' + name + '</h3>' +
+          '<p class="menu-card-desc">' + escapeHtml(item.description) + '</p>' +
+          '<div class="menu-card-price">' + priceText(item.price) + '</div>' +
+        '</div>' +
+      '</article>';
+  }
+
+  function renderSections(items, variant) {
+    var cardsClass = variant === 'landing' ? 'menu-cards menu-cards--landing' : 'menu-cards';
+
+    return group(items).map(function (cat) {
+      return '' +
+        '<section>' +
+          '<div class="text-panel">' +
+            '<h2 class="menu-category-title">' + escapeHtml(cat.category) + '</h2>' +
+            '<div class="' + cardsClass + '">' +
+              cat.items.map(function (item) { return card(item, variant); }).join('') +
+            '</div>' +
+          '</div>' +
+        '</section>';
+    }).join('');
+  }
+
+  function renderHighlights(items, names) {
+    var byName = {};
+    (items || []).forEach(function (item) { byName[item.name] = item; });
+
+    return (names || []).map(function (name) {
+      return byName[name];
+    }).filter(Boolean).map(function (item) {
+      var unavailable = !item.available;
+      return '' +
+        '<li class="menu-item' + (unavailable ? ' menu-item--unavailable' : '') + '">' +
+          '<div class="menu-item-info">' +
+            '<div class="menu-item-name">' + escapeHtml(item.name) +
+              (unavailable ? ' <span class="menu-unavailable-badge">Unavailable</span>' : '') +
+            '</div>' +
+            '<div class="menu-item-desc">' + escapeHtml(item.description) + '</div>' +
+          '</div>' +
+          '<div class="menu-item-price">' + priceText(item.price) + '</div>' +
+        '</li>';
+    }).join('');
+  }
+
+  // Re-render every 30 seconds and whenever the tab is focused again.
+  // A failed refresh is passed to `render` as (null, error) so the page
+  // can show a friendly message instead of stale menu data.
+  function watch(render) {
+    var running = false;
+
+    function run() {
+      if (running) return;
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+
+      running = true;
+      load().then(function (items) {
+        render(items, null);
+      }).catch(function (err) {
+        render(null, err || new Error('The menu could not be loaded.'));
+      }).then(function () {
+        running = false;
+      });
+    }
+
+    run();
+    window.setInterval(run, REFRESH_MS);
+    window.addEventListener('focus', run);
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState !== 'hidden') run();
+    });
+
+    return { refresh: run };
+  }
+
+  window.eqMenu = {
+    load: load,
+    group: group,
+    imageSrc: imageSrc,
+    priceText: priceText,
+    renderSections: renderSections,
+    renderHighlights: renderHighlights,
+    watch: watch,
+    escapeHtml: escapeHtml
+  };
+})();

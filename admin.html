@@ -13,93 +13,146 @@
 </head>
 <body>
 
-  <header class="admin-topbar">
-    <div class="admin-brand">Ember &amp; Quill <span>Admin</span></div>
-    <nav class="admin-tabs" id="adminTabs" aria-label="Admin sections" hidden>
-      <button type="button" data-view="orders" class="active">Orders <span class="tab-badge" id="ordersBadge" hidden>0</span></button>
-      <button type="button" data-view="reservations">Reservations <span class="tab-badge" id="reservationsBadge" hidden>0</span></button>
-      <button type="button" data-view="customers">Customers</button>
-      <button type="button" data-view="activity">Activity Log</button>
-    </nav>
-    <div class="admin-session" id="adminSession" hidden>
+  <div id="sidebarBackdrop" class="admin-sidebar-backdrop" hidden></div>
+
+  <aside id="adminSidebar" class="admin-sidebar" aria-label="Admin sections" hidden>
+    <div class="admin-sidebar-head">
+      <span class="admin-brand">Ember &amp; Quill <span>Admin</span></span>
+      <button type="button" id="sidebarCloseBtn" class="admin-sidebar-close" aria-label="Hide menu">&times;</button>
+    </div>
+    <div class="admin-sidebar-scroll">
+      <nav class="admin-sidebar-nav">
+        <a class="admin-nav-item" href="#dashboard" data-route="dashboard">Dashboard</a>
+        <div class="admin-nav-group">
+          <span class="admin-nav-label">Orders <span class="tab-badge" id="ordersBadge" hidden>0</span></span>
+          <a class="admin-nav-item admin-nav-sub" href="#orders" data-route="orders">List</a>
+          <a class="admin-nav-item admin-nav-sub" href="#orders" data-route="order" id="navOrderDetail" aria-disabled="true">Detail</a>
+        </div>
+        <div class="admin-nav-group">
+          <span class="admin-nav-label">Customers</span>
+          <a class="admin-nav-item admin-nav-sub" href="#customers" data-route="customers">List</a>
+        </div>
+        <div class="admin-nav-group">
+          <span class="admin-nav-label">Menu</span>
+          <a class="admin-nav-item admin-nav-sub" href="#menu" data-route="menu">List</a>
+        </div>
+        <a class="admin-nav-item" href="#reservations" data-route="reservations">Reservations <span class="tab-badge" id="reservationsBadge" hidden>0</span></a>
+        <a class="admin-nav-item" href="#wallet" data-route="wallet">Wallet</a>
+        <a class="admin-nav-item" href="#settings" data-route="settings">Settings</a>
+        <a class="admin-nav-item" href="#activity" data-route="activity">Activity Log</a>
+      </nav>
+    </div>
+    <div class="admin-sidebar-footer">
       <span class="admin-user" id="adminUserEmail"></span>
-      <button type="button" id="signOutBtn" class="admin-signout">Sign out</button>
+      <button type="button" id="signOutBtn" class="admin-signout">Log out</button>
     </div>
-  </header>
+  </aside>
 
-  <div id="liveNote" class="admin-live-note" hidden>
-    <span class="admin-live-dot" aria-hidden="true"></span>
-    <span>Live data</span>
-    <span id="liveStatus" class="admin-live-status is-connecting" role="status">Connecting…</span>
-    <button type="button" id="enableAlertsBtn" class="admin-enable-alerts" hidden>Enable alerts</button>
-  </div>
+  <div class="admin-content">
 
-  <div id="adminAlertStack" class="admin-alert-stack" aria-live="polite"></div>
+    <header class="admin-topbar">
+      <button type="button" id="adminMenuBtn" class="admin-hamburger" aria-label="Toggle menu" aria-expanded="true" aria-controls="adminSidebar" hidden>
+        <span></span><span></span><span></span>
+      </button>
+      <div class="admin-topbar-titles">
+        <h1 class="admin-page-title" id="adminPageTitle">Dashboard</h1>
+        <p class="admin-breadcrumb" id="adminBreadcrumb">Admin</p>
+      </div>
+    </header>
 
-  <div id="bootView" class="admin-boot">Checking session…</div>
-
-  <div id="loginView" class="admin-login" hidden>
-    <div class="admin-login-card">
-      <p class="admin-login-label">Ember &amp; Quill</p>
-      <h1 class="admin-login-title">Admin sign in</h1>
-      <p class="admin-login-text">Sign in with your admin email and password.</p>
-      <form id="loginForm" class="admin-login-form" novalidate>
-        <label class="admin-field">
-          <span>Email</span>
-          <input id="loginEmail" class="admin-input" type="email" name="email" autocomplete="username" required>
-        </label>
-        <label class="admin-field">
-          <span>Password</span>
-          <input id="loginPassword" class="admin-input" type="password" name="password" autocomplete="current-password" required>
-        </label>
-        <div id="loginError" class="admin-login-error" role="alert" hidden></div>
-        <button type="submit" id="loginBtn" class="btn-admin-primary admin-login-submit">Sign in</button>
-      </form>
+    <div id="liveNote" class="admin-live-note" hidden>
+      <span class="admin-live-dot" aria-hidden="true"></span>
+      <span>Live data</span>
+      <span id="liveStatus" class="admin-live-status is-connecting" role="status">Connecting…</span>
+      <button type="button" id="enableAlertsBtn" class="admin-enable-alerts" hidden>Enable alerts</button>
     </div>
+
+    <div id="adminAlertStack" class="admin-alert-stack" aria-live="polite"></div>
+
+    <div id="bootView" class="admin-boot">Checking session…</div>
+
+    <div id="loginView" class="admin-login" hidden>
+      <div class="admin-login-card">
+        <p class="admin-login-label">Ember &amp; Quill</p>
+        <h2 class="admin-login-title">Admin sign in</h2>
+        <p class="admin-login-text">Sign in with your admin email and password.</p>
+        <form id="loginForm" class="admin-login-form" novalidate>
+          <label class="admin-field">
+            <span>Email</span>
+            <input id="loginEmail" class="admin-input" type="email" name="email" autocomplete="username" required>
+          </label>
+          <label class="admin-field">
+            <span>Password</span>
+            <input id="loginPassword" class="admin-input" type="password" name="password" autocomplete="current-password" required>
+          </label>
+          <div id="loginError" class="admin-login-error" role="alert" hidden></div>
+          <button type="submit" id="loginBtn" class="btn-admin-primary admin-login-submit">Sign in</button>
+        </form>
+      </div>
+    </div>
+
+    <main class="admin-main" id="adminMain" hidden>
+
+      <section id="view-dashboard" class="admin-view active">
+        <div id="dashboardBody" class="admin-dashboard"></div>
+      </section>
+
+      <section id="view-orders" class="admin-view">
+        <div class="admin-view-head">
+          <div class="admin-filter-stack">
+            <div class="admin-filters" id="statusFilters" role="group" aria-label="Filter orders"></div>
+          </div>
+        </div>
+        <div id="orderStats" class="admin-stats-grid"></div>
+        <div id="ordersList" class="admin-list"></div>
+      </section>
+
+      <section id="view-order" class="admin-view">
+        <div class="admin-detail" id="orderDetailBody"></div>
+      </section>
+
+      <section id="view-customers" class="admin-view">
+        <div class="admin-view-head">
+          <div class="admin-view-head-actions">
+            <input id="customerSearch" class="admin-input admin-search" type="search" placeholder="Search name, phone or email" aria-label="Search customers">
+          </div>
+        </div>
+        <div id="customersList" class="admin-list"></div>
+      </section>
+
+      <section id="view-menu" class="admin-view">
+        <input id="menuSearch" class="admin-input admin-menu-search" type="search" placeholder="Search dishes" aria-label="Search menu">
+        <div id="menuList" class="menu-cards admin-menu-grid"></div>
+      </section>
+
+      <section id="view-reservations" class="admin-view">
+        <div class="admin-view-head">
+          <div class="admin-filters" id="reservationFilters" role="group" aria-label="Filter reservations by status"></div>
+        </div>
+        <div id="reservationsList" class="admin-list"></div>
+      </section>
+
+      <section id="view-wallet" class="admin-view">
+        <div class="admin-soon">
+          <h2>Wallet</h2>
+          <p>Coming soon — not connected yet.</p>
+        </div>
+      </section>
+
+      <section id="view-settings" class="admin-view">
+        <div class="admin-soon">
+          <h2>Settings</h2>
+          <p>Coming soon — not connected yet.</p>
+        </div>
+      </section>
+
+      <section id="view-activity" class="admin-view">
+        <div id="activityList" class="admin-list"></div>
+      </section>
+
+    </main>
+
   </div>
-
-  <main class="admin-main" id="adminMain" hidden>
-
-    <section id="view-orders" class="admin-view active">
-      <div class="admin-view-head">
-        <h1>Incoming Orders</h1>
-        <div class="admin-filter-stack">
-          <div class="admin-filters" id="statusFilters" role="group" aria-label="Filter orders"></div>
-        </div>
-      </div>
-      <div id="ordersList" class="admin-list"></div>
-    </section>
-
-    <section id="view-reservations" class="admin-view">
-      <div class="admin-view-head">
-        <h1>Reservations</h1>
-        <div class="admin-filters" id="reservationFilters" role="group" aria-label="Filter reservations by status"></div>
-      </div>
-      <div id="reservationsList" class="admin-list"></div>
-    </section>
-
-    <section id="view-customers" class="admin-view">
-      <div class="admin-view-head">
-        <h1>Customers</h1>
-        <div class="admin-view-head-actions">
-          <input id="customerSearch" class="admin-input admin-search" type="search" placeholder="Search name or phone" aria-label="Search customers">
-        </div>
-      </div>
-      <div id="customersList" class="admin-list"></div>
-    </section>
-
-    <section id="view-activity" class="admin-view">
-      <h1>Activity Log</h1>
-      <div id="activityList" class="admin-list"></div>
-    </section>
-
-  </main>
-
-  <div id="panelBackdrop" class="admin-backdrop"></div>
-  <section id="panel" class="admin-panel" aria-label="Details panel">
-    <button id="panelClose" type="button" class="admin-panel-close" aria-label="Close panel">&times;</button>
-    <div id="panelContent"></div>
-  </section>
 
   <div id="modal" class="admin-modal" role="dialog" aria-modal="true">
     <div class="admin-modal-card">
@@ -117,6 +170,7 @@
   <div id="toast" class="admin-toast" role="status"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="supabase-config.js"></script>
   <script src="admin.js"></script>
 </body>

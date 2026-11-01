@@ -65,6 +65,21 @@ const RESERVATION_LABELS = {
   CANCELLED: "Cancelled"
 };
 
+// One address per page: #dashboard, #orders, #order/<id>, #customers,
+// #menu, #reservations, #wallet, #settings, #activity.
+const ROUTES = {
+  dashboard: { title: "Dashboard", crumbs: ["Admin", "Dashboard"] },
+  orders: { title: "Orders", crumbs: ["Admin", "Orders", "List"] },
+  order: { title: "Order detail", crumbs: ["Admin", "Orders", "Detail"] },
+  customers: { title: "Customers", crumbs: ["Admin", "Customers", "List"] },
+  menu: { title: "Menu", crumbs: ["Admin", "Menu", "List"] },
+  reservations: { title: "Reservations", crumbs: ["Admin", "Reservations"] },
+  wallet: { title: "Wallet", crumbs: ["Admin", "Wallet"] },
+  settings: { title: "Settings", crumbs: ["Admin", "Settings"] },
+  activity: { title: "Activity Log", crumbs: ["Admin", "Activity Log"] }
+};
+const DEFAULT_ROUTE = "dashboard";
+
 const ACTIVITY_LABELS = {
   ORDER_APPROVED: "Order approved",
   ORDER_REJECTED: "Order rejected",
@@ -76,19 +91,21 @@ const ACTIVITY_LABELS = {
   RESERVATION_CONFIRMED: "Reservation confirmed",
   RESERVATION_MARKED_PAID: "Marked as paid",
   RESERVATION_CANCELLED: "Reservation cancelled",
-  RESERVATION_CANCELLED_BY_CUSTOMER: "Cancelled by customer"
+  RESERVATION_CANCELLED_BY_CUSTOMER: "Cancelled by customer",
+  MENU_ITEM_AVAILABILITY_CHANGED: "Menu availability changed"
 };
 
 const UNUSUAL_TOTAL = 100000;
 
 const state = {
-  view: "orders",
+  view: DEFAULT_ROUTE,
   statusFilter: "ALL",
   resFilter: "ALL",
   customerSearch: "",
   orders: [],
   reservations: [],
   activity: [],
+  menu: [],
   ordersLoading: true,
   ordersError: null,
   resLoading: true,
@@ -96,6 +113,14 @@ const state = {
   resActionError: null,
   activityLoading: true,
   activityError: null,
+  menuLoading: true,
+  menuError: null,
+  menuActionError: null,
+  menuSearch: "",
+  menuSavingId: null,
+  menuSavingRemarksId: null,
+  menuRemarksDraft: {},
+  menuNoteOpen: {},
   saving: false,
   authed: false,
   openOrderKey: null,
@@ -103,7 +128,9 @@ const state = {
   newReservations: 0,
   titleCount: 0,
   titleLabel: "New order",
-  liveStatus: "connecting"
+  liveStatus: "connecting",
+  dashboardSig: "",
+  charts: []
 };
 
 /* ── Helpers ── */
@@ -145,6 +172,40 @@ function orderMatchesFilter(o, filter) {
   if (filter === "AWAITING_PAYMENT") return isUnpaidPending(o);
   if (filter === "PAID_READY") return o.status === "PENDING_APPROVAL" && !!o.paid_at;
   return o.status === filter;
+}
+
+// An order only counts as income once it is paid and has not been
+// called off again afterwards.
+function isRevenue(o) {
+  return !!o.paid_at && o.status !== "REJECTED" && o.status !== "CANCELLED";
+}
+
+function isCounted(o) {
+  return o.status !== "REJECTED" && o.status !== "CANCELLED";
+}
+
+// Orders have no customer table the admin can read (profiles are
+// owner-only), so a customer is identified by their own fields.
+function customerKeyOf(o) {
+  if (o.user_id) return "u:" + String(o.user_id).toLowerCase();
+  const phone = normalizePhone(o.phone);
+  if (phone) return "p:" + phone;
+  const email = String(o.email || "").trim().toLowerCase();
+  if (email) return "e:" + email;
+  const name = String(o.customer_name || "").trim().toLowerCase();
+  return name ? "n:" + name : null;
+}
+
+function itemsSummary(o, max) {
+  const items = itemsOf(o);
+  const limit = max || 2;
+  const names = items.map(function (it) {
+    const qty = Number(it.qty) || 0;
+    return (it.name || "Item") + (qty > 1 ? " ×" + qty : "");
+  });
+  if (!names.length) return "—";
+  if (names.length <= limit) return names.join(", ");
+  return names.slice(0, limit).join(", ") + " +" + (names.length - limit) + " more";
 }
 
 function resStatusLabel(s) {
@@ -249,6 +310,12 @@ function activityTarget(entry) {
     });
     return r ? "Reservation — " + (r.customer_name || "guest") : "Reservation";
   }
+  if (entry.target_type === "menu_item") {
+    const item = state.menu.find(function (x) {
+      return String(x.id) === String(entry.target_id);
+    });
+    return item ? item.name : "Menu item";
+  }
   return entry.target_type || "—";
 }
 
@@ -264,8 +331,12 @@ function cacheElements() {
   el.loginBtn = document.getElementById("loginBtn");
   el.loginError = document.getElementById("loginError");
 
-  el.tabs = document.getElementById("adminTabs");
-  el.session = document.getElementById("adminSession");
+  el.menuBtn = document.getElementById("adminMenuBtn");
+  el.sidebar = document.getElementById("adminSidebar");
+  el.sidebarBackdrop = document.getElementById("sidebarBackdrop");
+  el.sidebarClose = document.getElementById("sidebarCloseBtn");
+  el.pageTitle = document.getElementById("adminPageTitle");
+  el.breadcrumb = document.getElementById("adminBreadcrumb");
   el.userEmail = document.getElementById("adminUserEmail");
   el.signOutBtn = document.getElementById("signOutBtn");
   el.liveNote = document.getElementById("liveNote");
@@ -276,18 +347,20 @@ function cacheElements() {
   el.reservationsBadge = document.getElementById("reservationsBadge");
   el.main = document.getElementById("adminMain");
 
+  el.dashboardBody = document.getElementById("dashboardBody");
   el.filters = document.getElementById("statusFilters");
+  el.orderStats = document.getElementById("orderStats");
   el.ordersList = document.getElementById("ordersList");
   el.reservationFilters = document.getElementById("reservationFilters");
   el.reservationsList = document.getElementById("reservationsList");
   el.customersList = document.getElementById("customersList");
   el.activityList = document.getElementById("activityList");
   el.customerSearch = document.getElementById("customerSearch");
+  el.menuSearch = document.getElementById("menuSearch");
+  el.menuList = document.getElementById("menuList");
 
-  el.panel = document.getElementById("panel");
-  el.panelContent = document.getElementById("panelContent");
-  el.panelBackdrop = document.getElementById("panelBackdrop");
-  el.panelClose = document.getElementById("panelClose");
+  el.orderDetail = document.getElementById("orderDetailBody");
+  el.navOrderDetail = document.getElementById("navOrderDetail");
 
   el.modal = document.getElementById("modal");
   el.modalTitle = document.getElementById("modalTitle");
@@ -324,8 +397,9 @@ function showLogin(message) {
   el.boot.hidden = true;
   el.login.hidden = false;
   el.main.hidden = true;
-  el.tabs.hidden = true;
-  el.session.hidden = true;
+  el.menuBtn.hidden = true;
+  el.sidebar.hidden = true;
+  closeNav();
   el.liveNote.hidden = true;
   if (message) showLoginError(message);
   else hideLoginError();
@@ -335,14 +409,23 @@ function resetDataState() {
   state.orders = [];
   state.reservations = [];
   state.activity = [];
+  state.menu = [];
   state.ordersLoading = true;
   state.resLoading = true;
   state.activityLoading = true;
+  state.menuLoading = true;
   state.ordersError = null;
   state.resError = null;
   state.activityError = null;
+  state.menuError = null;
+  state.menuActionError = null;
+  state.menuSavingId = null;
+  state.menuSavingRemarksId = null;
+  state.menuRemarksDraft = {};
+  state.menuNoteOpen = {};
   state.resActionError = null;
   state.saving = false;
+  state.dashboardSig = "";
 }
 
 function setLoggedOut() {
@@ -353,18 +436,19 @@ function setLoggedOut() {
   state.statusFilter = "ALL";
   state.resFilter = "ALL";
   state.customerSearch = "";
+  state.menuSearch = "";
   state.newOrders = 0;
   state.newReservations = 0;
   state.titleCount = 0;
   state.titleLabel = "New order";
   if (el.customerSearch) el.customerSearch.value = "";
-  closePanel();
+  if (el.menuSearch) el.menuSearch.value = "";
   closeModal();
   clearTopAlerts();
   updateBadges();
   updateTitle();
   if (el.loginForm) el.loginForm.reset();
-  setView("orders");
+  setRoute(DEFAULT_ROUTE);
   showLogin();
 }
 
@@ -377,11 +461,13 @@ function setAuthed(session) {
   el.boot.hidden = true;
   el.login.hidden = true;
   el.main.hidden = false;
-  el.tabs.hidden = false;
-  el.session.hidden = false;
+  el.menuBtn.hidden = false;
+  el.sidebar.hidden = false;
+  document.body.classList.add("admin-nav-shown");
   el.liveNote.hidden = false;
   hideLoginError();
-  setView("orders");
+  const route = parseRoute();
+  applyRoute(route.name, route.param, true);
   updateAlertsButton();
   startRealtime();
   startPolling();
@@ -500,7 +586,7 @@ async function handleSignOut() {
 
 /* ── Data ── */
 function loadDashboard() {
-  return Promise.all([loadOrders(), loadReservations(), loadActivity()]);
+  return Promise.all([loadOrders(), loadReservations(), loadActivity(), loadMenu()]);
 }
 
 async function loadOrders(opts) {
@@ -512,6 +598,8 @@ async function loadOrders(opts) {
     state.ordersError = null;
     renderOrders();
     renderCustomers();
+    renderOrderDetail();
+    renderDashboard();
   }
 
   let next = null;
@@ -520,7 +608,7 @@ async function loadOrders(opts) {
   try {
     const res = await client
       .from("orders")
-      .select("id, order_no, customer_name, phone, email, address, items, total, status, paid_at, created_at")
+      .select("id, order_no, customer_name, phone, email, address, items, total, status, paid_at, created_at, user_id")
       .order("created_at", { ascending: false, nullsFirst: false });
 
     if (res.error) error = res.error;
@@ -539,6 +627,8 @@ async function loadOrders(opts) {
     state.ordersError = null;
     renderOrders();
     renderCustomers();
+    renderOrderDetail();
+    renderDashboard();
     renderActivity();
     return;
   }
@@ -553,6 +643,8 @@ async function loadOrders(opts) {
   state.ordersLoading = false;
   renderOrders();
   renderCustomers();
+  renderOrderDetail();
+  renderDashboard();
   renderActivity();
 }
 
@@ -637,6 +729,7 @@ async function loadActivity(opts) {
     state.activityError = null;
     state.activityLoading = false;
     renderActivity();
+    renderOrderDetail();
     return;
   }
 
@@ -649,16 +742,332 @@ async function loadActivity(opts) {
 
   state.activityLoading = false;
   renderActivity();
+  renderOrderDetail();
 }
 
-async function logActivity(action, targetType, targetId) {
+async function loadMenu(opts) {
+  if (!client) return;
+  const silent = !!(opts && opts.silent);
+
+  if (!silent) {
+    state.menuLoading = true;
+    state.menuError = null;
+    renderMenu();
+    renderDashboard();
+  }
+
+  let next = null;
+  let error = null;
+
+  try {
+    const res = await client
+      .from("menu_admin")
+      .select("id, slug, name, category, description, price, image_url, available, remarks, sort_order, updated_at")
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+
+    if (res.error) error = res.error;
+    else next = res.data || [];
+  } catch (err) {
+    error = err;
+  }
+
+  if (silent) {
+    if (error || !next) return;
+    if (menuSignature(next) === menuSignature(state.menu)) return;
+    state.menu = next;
+    state.menuLoading = false;
+    state.menuError = null;
+    renderMenu();
+    renderActivity();
+    renderDashboard();
+    return;
+  }
+
+  if (error) {
+    state.menuError = error;
+    state.menu = [];
+  } else {
+    state.menu = next || [];
+  }
+
+  state.menuLoading = false;
+  renderMenu();
+  renderActivity();
+  renderDashboard();
+}
+
+function menuSignature(items) {
+  return (items || []).map(function (item) {
+    return [
+      item.id,
+      item.available ? 1 : 0,
+      item.remarks || "",
+      item.name || "",
+      item.category || "",
+      item.image_url || "",
+      item.price
+    ].join("~");
+  }).join("|");
+}
+
+/* ── Dashboard (computed from the loaded orders + menu only) ── */
+const CHART_PALETTE = [
+  "#FF5A36", "#E8A33D", "#6FAE86", "#6EA8FE", "#C58BD6",
+  "#7FD69F", "#FF9C85", "#B8BEC4", "#D8B26E", "#8FA0C8"
+];
+
+function monthKey(value) {
+  const d = value ? new Date(value) : null;
+  if (!d || isNaN(d.getTime())) return null;
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+}
+
+function monthLabel(key) {
+  const m = /^(\d{4})-(\d{2})$/.exec(key);
+  if (!m) return key;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, 1);
+  return d.toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+}
+
+function dashboardData() {
+  const revenueOrders = state.orders.filter(isRevenue);
+
+  const months = new Map();
+  revenueOrders.forEach(function (o) {
+    const key = monthKey(o.paid_at || o.created_at);
+    if (!key) return;
+    months.set(key, (months.get(key) || 0) + totalOf(o));
+  });
+  const monthKeys = Array.from(months.keys()).sort();
+  const monthly = monthKeys.slice(-12).map(function (key) {
+    return { key: key, label: monthLabel(key), value: months.get(key) };
+  });
+
+  const menuByName = new Map();
+  state.menu.forEach(function (item) {
+    menuByName.set(String(item.name || "").trim().toLowerCase(), item);
+  });
+
+  const categories = new Map();
+  const dishes = new Map();
+
+  revenueOrders.forEach(function (o) {
+    itemsOf(o).forEach(function (it) {
+      const qty = Number(it.qty) || 0;
+      const price = Number(it.price) || 0;
+      const income = qty * price;
+      const name = String(it.name || "Item").trim();
+      if (!name || income <= 0) return;
+
+      const item = menuByName.get(name.toLowerCase());
+      const category = (item && item.category ? String(item.category) : "Other");
+      categories.set(category, (categories.get(category) || 0) + income);
+
+      let dish = dishes.get(name.toLowerCase());
+      if (!dish) {
+        dish = { name: name, qty: 0, income: 0, item: item || null, price: price };
+        dishes.set(name.toLowerCase(), dish);
+      }
+      dish.qty += qty;
+      dish.income += income;
+    });
+  });
+
+  const customers = new Set();
+  state.orders.forEach(function (o) {
+    const key = customerKeyOf(o);
+    if (key) customers.add(key);
+  });
+
+  return {
+    totalDishes: state.menu.length,
+    totalRevenue: revenueOrders.reduce(function (sum, o) { return sum + totalOf(o); }, 0),
+    totalOrders: state.orders.length,
+    totalCustomers: customers.size,
+    monthly: monthly,
+    categories: Array.from(categories.entries())
+      .sort(function (a, b) { return b[1] - a[1]; }),
+    trending: Array.from(dishes.values())
+      .sort(function (a, b) { return b.qty - a.qty || b.income - a.income; })
+      .slice(0, 6)
+  };
+}
+
+function trendingCard(dish) {
+  const src = dish.item ? menuImageSrc(dish.item.image_url) : "";
+  const price = dish.item ? Number(dish.item.price) : dish.price;
+  return '<article class="menu-card">' +
+    (src ? '<img class="menu-card-img" src="' + esc(src) + '" alt="' + esc(dish.name) + '" loading="lazy">' : "") +
+    '<div class="menu-card-body">' +
+      '<h3 class="menu-card-name">' + esc(dish.name) + "</h3>" +
+      '<div class="menu-card-price">' + money(price) + "</div>" +
+      '<p class="admin-trending-meta">' + dish.qty + " ordered · " + money(dish.income) + " income</p>" +
+      (dish.item ? '<p class="admin-trending-cat">' + esc(dish.item.category || "Other") + "</p>" : "") +
+    "</div>" +
+  "</article>";
+}
+
+function chartCanvas(id, emptyHtml) {
+  return emptyHtml || '<div class="admin-chart-body"><canvas id="' + id + '"></canvas></div>';
+}
+
+function destroyCharts() {
+  state.charts.forEach(function (c) {
+    try { c.destroy(); } catch (err) { /* already gone */ }
+  });
+  state.charts = [];
+}
+
+function buildCharts(data) {
+  if (!window.Chart) return;
+
+  const tickColor = "#B8BEC4";
+  const gridColor = "rgba(255, 255, 255, 0.08)";
+
+  const revenue = document.getElementById("eqRevenueChart");
+  if (revenue && data.monthly.length) {
+    state.charts.push(new window.Chart(revenue, {
+      type: "bar",
+      data: {
+        labels: data.monthly.map(function (m) { return m.label; }),
+        datasets: [{
+          label: "Paid revenue",
+          data: data.monthly.map(function (m) { return m.value; }),
+          backgroundColor: "#FF5A36",
+          borderRadius: 4,
+          maxBarThickness: 42
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function (ctx) { return money(ctx.parsed.y); }
+            }
+          }
+        },
+        scales: {
+          x: { ticks: { color: tickColor }, grid: { color: gridColor } },
+          y: {
+            ticks: { color: tickColor, callback: function (v) { return "₦" + Number(v).toLocaleString("en-NG"); } },
+            grid: { color: gridColor }
+          }
+        }
+      }
+    }));
+  }
+
+  const byCategory = document.getElementById("eqCategoryChart");
+  if (byCategory && data.categories.length) {
+    state.charts.push(new window.Chart(byCategory, {
+      type: "doughnut",
+      data: {
+        labels: data.categories.map(function (c) { return c[0]; }),
+        datasets: [{
+          data: data.categories.map(function (c) { return c[1]; }),
+          backgroundColor: data.categories.map(function (c, i) {
+            return CHART_PALETTE[i % CHART_PALETTE.length];
+          }),
+          borderColor: "#0b0d11",
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom", labels: { color: tickColor, boxWidth: 12 } },
+          tooltip: {
+            callbacks: {
+              label: function (ctx) {
+                return ctx.label + ": " + money(ctx.parsed);
+              }
+            }
+          }
+        }
+      }
+    }));
+  }
+}
+
+function dashboardSignature() {
+  return [
+    state.ordersLoading ? 1 : 0,
+    state.menuLoading ? 1 : 0,
+    state.ordersError ? 1 : 0,
+    state.menuError ? 1 : 0,
+    ordersSignature(state.orders),
+    menuSignature(state.menu)
+  ].join("::");
+}
+
+function renderDashboard() {
+  if (!el.dashboardBody) return;
+
+  const sig = dashboardSignature();
+  if (sig === state.dashboardSig) return;
+  state.dashboardSig = sig;
+
+  if (state.ordersLoading || state.menuLoading) {
+    destroyCharts();
+    el.dashboardBody.innerHTML = '<p class="empty">Loading dashboard…</p>';
+    return;
+  }
+  if (state.ordersError) {
+    destroyCharts();
+    renderLoadError(el.dashboardBody, state.ordersError, loadOrders);
+    return;
+  }
+
+  const data = dashboardData();
+
+  destroyCharts();
+  el.dashboardBody.innerHTML =
+    '<div class="admin-stats-grid">' +
+      statCard("Total dishes", String(data.totalDishes), "From the admin menu") +
+      statCard("Total revenue", money(data.totalRevenue), "Paid orders only") +
+      statCard("Total orders", String(data.totalOrders), "All orders on record") +
+      statCard("Total customers", String(data.totalCustomers), "Distinct customers who ordered") +
+    "</div>" +
+    '<div class="admin-chart-grid">' +
+      '<section class="admin-chart-card">' +
+        "<h2>Monthly revenue</h2>" +
+        chartCanvas("eqRevenueChart", data.monthly.length ? "" :
+          '<p class="empty">No paid orders yet. Revenue appears here once an order is marked as paid.</p>') +
+        '<p class="admin-chart-note">Paid orders, grouped by the month they were paid.</p>' +
+      "</section>" +
+      '<section class="admin-chart-card">' +
+        "<h2>Sales by category</h2>" +
+        chartCanvas("eqCategoryChart", data.categories.length ? "" :
+          '<p class="empty">No dish sales to group yet.</p>') +
+        '<p class="admin-chart-note">Order items matched to their menu category.</p>' +
+      "</section>" +
+    "</div>" +
+    '<section class="admin-chart-card admin-trending-card">' +
+      "<h2>Trending dishes</h2>" +
+      (data.trending.length
+        ? '<div class="menu-cards admin-menu-grid">' + data.trending.map(trendingCard).join("") + "</div>"
+        : '<p class="empty">No dishes sold yet.</p>') +
+    "</section>" +
+    (window.Chart ? "" :
+      '<p class="admin-chart-note">The chart library did not load, so the two charts above show their data as text-only totals. Everything else still works.</p>');
+
+  buildCharts(data);
+}
+
+async function logActivity(action, targetType, targetId, note) {
   if (!client) return { error: { message: "Not connected to Supabase." } };
   try {
     const res = await client.from("activity_log").insert({
       actor_email: state.userEmail || null,
       action: action,
       target_type: targetType,
-      target_id: targetId == null ? null : String(targetId)
+      target_id: targetId == null ? null : String(targetId),
+      note: note == null ? null : String(note)
     });
     return { error: res.error || null };
   } catch (err) {
@@ -698,6 +1107,137 @@ function renderReservationFilters() {
   });
 }
 
+function menuImageSrc(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  if (/^(?:https?:)?\/\//i.test(s) || s.charAt(0) === "/" || s.indexOf("images/") === 0) return s;
+  return "images/" + s;
+}
+
+function menuCardHtml(item) {
+  const id = String(item.id);
+  const saving = state.menuSavingId === item.id;
+  const savingRemarks = state.menuSavingRemarksId === item.id;
+  const unavailable = !item.available;
+  const remarks = state.menuRemarksDraft[id] !== undefined
+    ? state.menuRemarksDraft[id]
+    : (item.remarks || "");
+  const noteOpen = !!state.menuNoteOpen[id];
+  const src = menuImageSrc(item.image_url);
+  const name = esc(item.name);
+
+  return '<article class="menu-card' + (unavailable ? " menu-card--unavailable" : "") + '" data-menu-id="' + esc(id) + '">' +
+    (src ? '<img class="menu-card-img" src="' + esc(src) + '" alt="' + name + '" loading="lazy">' : "") +
+    '<div class="menu-card-body">' +
+      (unavailable ? '<span class="menu-unavailable-badge">Unavailable</span>' : "") +
+      '<h3 class="menu-card-name">' + name + "</h3>" +
+      '<p class="menu-card-desc">' + esc(item.description || "") + "</p>" +
+      '<div class="menu-card-price">' + money(item.price) + "</div>" +
+      '<div class="admin-card-actions">' +
+        '<span class="admin-card-switch">' +
+          '<button type="button" class="menu-switch' + (item.available ? " menu-switch--on" : "") + '"' +
+            ' role="switch" aria-checked="' + (item.available ? "true" : "false") + '"' +
+            ' aria-label="Availability for ' + name + '"' + (saving ? " disabled" : "") + ">" +
+            '<span class="menu-switch-knob"></span>' +
+          "</button>" +
+          '<span class="menu-switch-label' + (item.available ? " menu-switch-label--on" : "") + '">' +
+            (item.available ? "Available" : "Unavailable") + "</span>" +
+        "</span>" +
+        '<button type="button" class="menu-note-toggle" data-menu-note-toggle="' + esc(id) + '"' +
+          ' aria-expanded="' + (noteOpen ? "true" : "false") + '">' +
+          (item.remarks ? "Note ·" : "Note") + "</button>" +
+      "</div>" +
+      '<div class="menu-card-note"' + (noteOpen ? "" : " hidden") + ">" +
+        '<input class="admin-input menu-remarks-input" type="text" placeholder="Note for Iris…"' +
+          ' aria-label="Note for Iris for ' + name + '" data-menu-remarks="' + esc(id) + '"' +
+          ' value="' + esc(remarks) + '">' +
+        '<button type="button" class="btn-admin-outline" data-menu-save-remarks="' + esc(id) + '"' +
+          (savingRemarks ? " disabled" : "") + ">" +
+          (savingRemarks ? "Saving…" : "Save") + "</button>" +
+      "</div>" +
+    "</div>" +
+  "</article>";
+}
+
+function renderMenu() {
+  if (!el.menuList) return;
+
+  if (state.menuLoading) {
+    el.menuList.innerHTML = '<p class="empty">Loading menu…</p>';
+    return;
+  }
+  if (state.menuError) {
+    renderLoadError(el.menuList, state.menuError, loadMenu);
+    return;
+  }
+
+  const actionAlert = state.menuActionError
+    ? '<div class="admin-alert admin-alert-error" role="alert">' +
+        "<strong>Could not save the change — the menu is as it was before. Please try again.</strong>" +
+        '<p class="admin-alert-detail">' + esc(errorText(state.menuActionError)) + "</p>" +
+      "</div>"
+    : "";
+
+  const term = String(state.menuSearch || "").trim().toLowerCase();
+  const items = state.menu.filter(function (item) {
+    if (term) {
+      const hay = (String(item.name || "") + " " + String(item.category || "")).toLowerCase();
+      if (hay.indexOf(term) === -1) return false;
+    }
+    return true;
+  });
+
+  if (!items.length) {
+    el.menuList.innerHTML = actionAlert + '<p class="empty">' +
+      (state.menu.length ? "No dishes match your search." : "No menu items yet.") +
+      "</p>";
+    return;
+  }
+
+  el.menuList.innerHTML = actionAlert + items.map(menuCardHtml).join("");
+
+  el.menuList.querySelectorAll(".menu-switch").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      const card = btn.closest(".menu-card");
+      const id = card ? card.getAttribute("data-menu-id") : null;
+      const item = state.menu.find(function (x) {
+        return String(x.id) === String(id);
+      });
+      if (item) setMenuAvailability(item, !item.available);
+    });
+  });
+
+  el.menuList.querySelectorAll("[data-menu-note-toggle]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      const id = btn.getAttribute("data-menu-note-toggle");
+      state.menuNoteOpen[id] = !state.menuNoteOpen[id];
+      renderMenu();
+      if (state.menuNoteOpen[id]) {
+        const box = el.menuList.querySelector('[data-menu-remarks="' + id + '"]');
+        if (box) box.focus();
+      }
+    });
+  });
+
+  el.menuList.querySelectorAll("[data-menu-save-remarks]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      const id = btn.getAttribute("data-menu-save-remarks");
+      const item = state.menu.find(function (x) {
+        return String(x.id) === String(id);
+      });
+      if (!item) return;
+      const box = el.menuList.querySelector('[data-menu-remarks="' + id + '"]');
+      saveMenuRemarks(item, box ? box.value : "");
+    });
+  });
+
+  el.menuList.querySelectorAll("[data-menu-remarks]").forEach(function (box) {
+    box.addEventListener("input", function () {
+      state.menuRemarksDraft[box.getAttribute("data-menu-remarks")] = box.value;
+    });
+  });
+}
+
 function renderLoadError(container, err, retryFn) {
   container.innerHTML =
     '<div class="admin-alert admin-alert-error" role="alert">' +
@@ -710,7 +1250,47 @@ function renderLoadError(container, err, retryFn) {
   if (retry) retry.addEventListener("click", retryFn);
 }
 
+function statCard(label, value, note) {
+  return '<div class="admin-stat">' +
+    '<span class="admin-stat-label">' + esc(label) + "</span>" +
+    '<span class="admin-stat-value">' + esc(value) + "</span>" +
+    (note ? '<span class="admin-stat-note">' + esc(note) + "</span>" : "") +
+  "</div>";
+}
+
+function renderOrderStats() {
+  if (!el.orderStats) return;
+
+  const orders = state.orders;
+  if (state.ordersLoading || state.ordersError || !orders.length) {
+    el.orderStats.innerHTML = "";
+    return;
+  }
+
+  const deliveries = orders.filter(function (o) {
+    return o.status === "OUT_FOR_DELIVERY" || o.status === "DELIVERED";
+  }).length;
+  const paidRevenue = orders.reduce(function (sum, o) {
+    return isRevenue(o) ? sum + totalOf(o) : sum;
+  }, 0);
+  const awaiting = orders.filter(function (o) {
+    return o.status === "PENDING_APPROVAL";
+  }).length;
+  const cancelled = orders.filter(function (o) {
+    return o.status === "CANCELLED";
+  }).length;
+  const cancelledPct = Math.round((cancelled / orders.length) * 100);
+
+  el.orderStats.innerHTML =
+    statCard("Deliveries", String(deliveries), "Out for delivery + delivered") +
+    statCard("Paid revenue", money(paidRevenue), "Paid orders, excluding cancelled and rejected") +
+    statCard("Awaiting approval", String(awaiting), "Orders not approved yet") +
+    statCard("Cancelled", cancelledPct + "%", cancelled + " of " + orders.length + " orders");
+}
+
 function renderOrders() {
+  renderOrderStats();
+
   if (state.ordersLoading) {
     el.ordersList.innerHTML = '<p class="empty">Loading orders…</p>';
     return;
@@ -731,53 +1311,73 @@ function renderOrders() {
     return;
   }
 
-  el.ordersList.innerHTML = orders.map(function (o) {
-    const total = totalOf(o);
-    const unusual = total >= UNUSUAL_TOTAL ? '<span class="tag tag-unusual">Unusual</span>' : "";
-    const cancelled = o.status === "CANCELLED" ? '<span class="tag tag-cancelled">Cancelled</span>' : "";
-    return '<button type="button" class="order-card" data-order-key="' + esc(orderKey(o)) + '">' +
-      '<div class="order-card-main">' +
-        '<div class="order-card-top"><span class="order-number">' + esc(orderLabel(o)) + "</span>" + unusual + paymentBadge(o) + cancelled + "</div>" +
-        '<div class="order-card-customer">' + esc(o.customer_name || "Unknown customer") + "</div>" +
-        '<div class="order-card-meta">' + esc(formatTime(o.created_at)) + "</div>" +
-      "</div>" +
-      '<div class="order-card-side">' +
-        '<div class="order-total">' + money(total) + "</div>" +
-        '<span class="status ' + statusClass(o) + '">' + esc(statusLabel(o.status)) + "</span>" +
-      "</div>" +
-    "</button>";
-  }).join("");
-
-  el.ordersList.querySelectorAll(".order-card").forEach(function (card) {
-    card.addEventListener("click", function () {
-      openOrder(card.getAttribute("data-order-key"));
-    });
-  });
+  el.ordersList.innerHTML =
+    '<div class="admin-table-wrap">' +
+      '<table class="admin-table admin-table--orders">' +
+        "<thead><tr>" +
+          "<th>Date</th><th>Order ID</th><th>Items</th><th>Amount</th><th>Status</th><th></th>" +
+        "</tr></thead>" +
+        "<tbody>" +
+          orders.map(function (o) {
+            const total = totalOf(o);
+            const unusual = total >= UNUSUAL_TOTAL ? '<span class="tag tag-unusual">Unusual</span>' : "";
+            const cancelled = o.status === "CANCELLED" ? '<span class="tag tag-cancelled">Cancelled</span>' : "";
+            return '<tr class="order-row" data-order-key="' + esc(orderKey(o)) + '">' +
+              '<td data-label="Date">' + esc(formatDate(o.created_at)) + "</td>" +
+              '<td data-label="Order ID"><span class=\'order-number\'>' + esc(orderLabel(o)) + "</span>" +
+                "<div class='order-card-tags'>" + unusual + paymentBadge(o) + cancelled + "</div></td>" +
+              '<td class=\'admin-table-items\' data-label="Items">' + esc(itemsSummary(o)) + "</td>" +
+              '<td class=\'admin-table-amount\' data-label="Amount">' + money(total) + "</td>" +
+              '<td data-label="Status"><span class="status ' + statusClass(o) + '">' + esc(statusLabel(o.status)) + "</span></td>" +
+              '<td data-label=""><a class=\'btn-admin-outline admin-view-btn\' href=\'#order/' + esc(orderKey(o)) + "'>View</a></td>" +
+            "</tr>";
+          }).join("") +
+        "</tbody>" +
+      "</table>" +
+    "</div>";
 }
 
 function customerGroups() {
   const groups = new Map();
 
+  // Every field comes from the order rows themselves — the customers
+  // page reads no other table.
   state.orders.forEach(function (o) {
-    const phone = String(o.phone || "").trim();
-    if (!phone) return;
+    const key = customerKeyOf(o);
+    if (!key) return;
 
-    let g = groups.get(phone);
+    let g = groups.get(key);
     if (!g) {
       g = {
-        phone: phone,
-        name: o.customer_name || "Unknown customer",
+        key: key,
+        name: "",
+        email: "",
+        phone: "",
         orders: 0,
-        total: 0
+        spent: 0,
+        since: null,
+        last: null
       };
-      groups.set(phone, g);
+      groups.set(key, g);
     }
+
+    // Orders arrive newest first, so the first non-empty value wins.
+    if (!g.name && o.customer_name) g.name = String(o.customer_name);
+    if (!g.email && o.email) g.email = String(o.email);
+    if (!g.phone && o.phone) g.phone = String(o.phone);
+
     g.orders += 1;
-    g.total += totalOf(o);
+    if (isCounted(o)) g.spent += totalOf(o);
+
+    const when = o.created_at ? new Date(o.created_at).getTime() : 0;
+    if (when) {
+      if (!g.since || when < g.since) g.since = when;
+      if (!g.last || when > g.last) g.last = when;
+    }
   });
 
   return Array.from(groups.values()).sort(function (a, b) {
-    return b.total - a.total;
+    return b.spent - a.spent;
   });
 }
 
@@ -794,27 +1394,46 @@ function renderCustomers() {
   const q = state.customerSearch.trim().toLowerCase();
   const groups = customerGroups().filter(function (g) {
     if (!q) return true;
-    return g.name.toLowerCase().indexOf(q) !== -1 || g.phone.toLowerCase().indexOf(q) !== -1;
+    return g.name.toLowerCase().indexOf(q) !== -1 ||
+      g.phone.toLowerCase().indexOf(q) !== -1 ||
+      g.email.toLowerCase().indexOf(q) !== -1;
   });
 
   if (!groups.length) {
-    el.customersList.innerHTML = '<p class="empty">No customers found.</p>';
+    el.customersList.innerHTML = '<p class="empty">' +
+      (state.orders.length ? "No customers match your search." : "No customers yet.") +
+      "</p>";
     return;
   }
 
-  el.customersList.innerHTML = groups.map(function (g) {
-    return '<div class="customer-card admin-static-card">' +
-      '<div class="order-card-main">' +
-        '<div class="order-card-customer">' + esc(g.name) + "</div>" +
-        '<div class="order-card-meta">' + esc(g.phone) + "</div>" +
-        '<div class="order-card-meta">' + g.orders + " order" + (g.orders === 1 ? "" : "s") + "</div>" +
-      "</div>" +
-      '<div class="order-card-side">' +
-        '<div class="order-total">' + money(g.total) + "</div>" +
-        '<div class="order-card-meta">Total spent</div>' +
-      "</div>" +
+  el.customersList.innerHTML =
+    '<p class="admin-table-note">Read-only — derived from order rows. ' +
+      "Add, edit and delete are coming in phase 2.</p>" +
+    '<div class="admin-table-wrap">' +
+      '<table class="admin-table admin-table--customers">' +
+        "<thead><tr>" +
+          "<th>Name</th><th>Email</th><th>Phone</th><th>Orders</th>" +
+          "<th>Total spent</th><th>Customer since</th><th>Actions</th>" +
+        "</tr></thead>" +
+        "<tbody>" +
+          groups.map(function (g) {
+            return "<tr>" +
+              '<td data-label="Name">' + esc(g.name || "Unknown customer") + "</td>" +
+              '<td data-label="Email">' + esc(g.email || "—") + "</td>" +
+              '<td data-label="Phone">' + esc(g.phone || "—") + "</td>" +
+              '<td data-label="Orders">' + g.orders + "</td>" +
+              '<td class=\'admin-table-amount\' data-label="Total spent">' + money(g.spent) + "</td>" +
+              '<td data-label="Customer since">' + (g.since ? esc(formatDate(new Date(g.since).toISOString())) : "—") + "</td>" +
+              '<td class=\'admin-table-actions\' data-label="Actions">' +
+                '<button type="button" class="btn-admin-outline" disabled title="Coming in phase 2">Add</button>' +
+                '<button type="button" class="btn-admin-outline" disabled title="Coming in phase 2">Edit</button>' +
+                '<button type="button" class="btn-admin-outline" disabled title="Coming in phase 2">Delete</button>' +
+              "</td>" +
+            "</tr>";
+          }).join("") +
+        "</tbody>" +
+      "</table>" +
     "</div>";
-  }).join("");
 }
 
 function reservationCard(r) {
@@ -946,42 +1565,129 @@ function renderActivity() {
 function renderAll() {
   renderFilters();
   renderReservationFilters();
+  renderDashboard();
   renderOrders();
+  renderOrderDetail();
   renderReservations();
   renderCustomers();
+  renderMenu();
   renderActivity();
 }
 
-/* ── Tabs ── */
-function setView(view) {
-  state.view = view;
-  closePanel();
-  if (view === "orders") state.newOrders = 0;
-  if (view === "reservations") state.newReservations = 0;
+/* ── Sidebar + hash routing ── */
+function parseRoute() {
+  const raw = String(location.hash || "").replace(/^#\/?/, "");
+  if (!raw) return { name: DEFAULT_ROUTE, param: null };
+  const parts = raw.split("/");
+  if (parts[0] === "order") return { name: "order", param: parts[1] || null };
+  return ROUTES[parts[0]] ? { name: parts[0], param: null } : { name: DEFAULT_ROUTE, param: null };
+}
+
+function routeHash(name, param) {
+  return name === "order" && param ? "#order/" + encodeURIComponent(param) : "#" + name;
+}
+
+function isNarrowScreen() {
+  return window.matchMedia("(max-width: 900px)").matches;
+}
+
+function setNavOpen(open) {
+  if (!el.sidebar || el.menuBtn.hidden) return;
+  const narrow = isNarrowScreen();
+
+  if (narrow) {
+    // Phones: the sidebar is an overlay, so only the open flag matters.
+    document.body.classList.toggle("admin-nav-open", open);
+    document.body.classList.remove("admin-nav-collapsed");
+    el.sidebarBackdrop.hidden = !open;
+  } else {
+    // Desktop: the sidebar is persistent; the button collapses it away.
+    document.body.classList.toggle("admin-nav-collapsed", !open);
+    document.body.classList.remove("admin-nav-open");
+    el.sidebarBackdrop.hidden = true;
+  }
+  el.menuBtn.setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+function navIsOpen() {
+  if (isNarrowScreen()) return document.body.classList.contains("admin-nav-open");
+  return !document.body.classList.contains("admin-nav-collapsed");
+}
+
+function toggleNav() {
+  setNavOpen(!navIsOpen());
+}
+
+// Only the phone overlay closes after a page is picked; the desktop
+// sidebar stays put.
+function dismissNavOverlay() {
+  if (isNarrowScreen() && document.body.classList.contains("admin-nav-open")) {
+    document.body.classList.remove("admin-nav-open");
+    el.sidebarBackdrop.hidden = true;
+    el.menuBtn.setAttribute("aria-expanded", "false");
+  }
+}
+
+function closeNav() {
+  document.body.classList.remove("admin-nav-open", "admin-nav-collapsed", "admin-nav-shown");
+  if (el.sidebarBackdrop) el.sidebarBackdrop.hidden = true;
+  if (el.menuBtn) el.menuBtn.setAttribute("aria-expanded", "false");
+}
+
+function applyRoute(name, param, updateHash) {
+  if (!ROUTES[name]) { name = DEFAULT_ROUTE; param = null; }
+
+  const hash = routeHash(name, param);
+  state.view = name;
+  state.openOrderKey = name === "order" ? param : null;
+
+  dismissNavOverlay();
+
+  if (name === "orders") state.newOrders = 0;
+  if (name === "reservations") state.newReservations = 0;
   updateBadges();
-  document.querySelectorAll(".admin-tabs button").forEach(function (b) {
-    b.classList.toggle("active", b.getAttribute("data-view") === view);
+
+  const meta = ROUTES[name];
+  if (el.pageTitle) {
+    const order = name === "order" ? findOrder(state.openOrderKey) : null;
+    el.pageTitle.textContent = order ? "Order " + orderLabel(order) : meta.title;
+  }
+  if (el.breadcrumb) el.breadcrumb.textContent = meta.crumbs.join(" / ");
+
+  if (el.navOrderDetail) {
+    el.navOrderDetail.href = state.openOrderKey ? hash : "#orders";
+    el.navOrderDetail.classList.toggle("is-disabled", !state.openOrderKey);
+    el.navOrderDetail.setAttribute("aria-disabled", state.openOrderKey ? "false" : "true");
+  }
+  document.querySelectorAll(".admin-sidebar-nav [data-route]").forEach(function (link) {
+    link.classList.toggle("active", link.getAttribute("data-route") === name);
   });
   document.querySelectorAll(".admin-view").forEach(function (v) {
-    v.classList.toggle("active", v.id === "view-" + view);
+    v.classList.toggle("active", v.id === "view-" + name);
   });
+
+  if (updateHash && location.hash !== hash) location.hash = hash;
+
   renderAll();
+  window.scrollTo(0, 0);
 }
 
-/* ── Order details panel ── */
-function openPanel() {
-  el.panel.classList.add("open");
-  el.panelBackdrop.classList.add("open");
+function setRoute(name, param) {
+  const hash = routeHash(name, param);
+  if (location.hash === hash) applyRoute(name, param, false);
+  else location.hash = hash;
 }
 
-function closePanel() {
-  el.panel.classList.remove("open");
-  el.panelBackdrop.classList.remove("open");
-  state.openOrderKey = null;
+/* ── Order detail page ── */
+function findOrder(key) {
+  if (key == null) return null;
+  return state.orders.find(function (o) {
+    return orderKey(o) === String(key);
+  }) || null;
 }
 
-function hidePanelError() {
-  const box = document.getElementById("panelError");
+function hideOrderError() {
+  const box = document.getElementById("orderError");
   if (box) {
     box.hidden = true;
     box.textContent = "";
@@ -1002,8 +1708,8 @@ function isReservationPaymentRequiredError(err) {
   return /must be paid before it can be confirmed/i.test(text);
 }
 
-function showPanelError(err) {
-  const box = document.getElementById("panelError");
+function showOrderError(err) {
+  const box = document.getElementById("orderError");
   if (!box) return;
   if (isPaymentRequiredError(err)) {
     box.innerHTML = "<strong>Order must be paid before it can be approved.</strong>" +
@@ -1015,24 +1721,14 @@ function showPanelError(err) {
   box.hidden = false;
 }
 
-function setPanelButtonsDisabled(disabled) {
+function setOrderButtonsDisabled(disabled) {
   ["approveBtn", "rejectBtn", "markPaidBtn"].forEach(function (id) {
     const b = document.getElementById(id);
     if (b) b.disabled = disabled;
   });
-  el.panelContent.querySelectorAll(".order-next-status").forEach(function (b) {
+  el.orderDetail.querySelectorAll(".order-next-status").forEach(function (b) {
     b.disabled = disabled;
   });
-}
-
-function openOrder(key) {
-  const o = state.orders.find(function (x) {
-    return orderKey(x) === String(key);
-  });
-  if (!o) return;
-  state.openOrderKey = String(key);
-  renderOrderPanel(o);
-  openPanel();
 }
 
 // The only forward step left in the simplified flow.
@@ -1046,7 +1742,75 @@ function orderNextActions(status) {
   }];
 }
 
-function renderOrderPanel(o) {
+function isSameCustomer(a, b) {
+  if (a.user_id && b.user_id) return String(a.user_id) === String(b.user_id);
+  const pa = normalizePhone(a.phone);
+  const pb = normalizePhone(b.phone);
+  if (pa || pb) return pa !== "" && pa === pb;
+  const ea = String(a.email || "").trim().toLowerCase();
+  const eb = String(b.email || "").trim().toLowerCase();
+  return !!ea && ea === eb;
+}
+
+// Status changes come from the activity log; the timestamps on the order
+// row itself cover when it was placed and paid.
+function statusHistory(o) {
+  const events = [];
+
+  if (o.created_at) events.push({ label: "Order placed", at: o.created_at });
+  if (o.paid_at) events.push({ label: "Payment recorded", at: o.paid_at });
+
+  state.activity.forEach(function (entry) {
+    if (entry.target_type !== "order") return;
+    if (String(entry.target_id) !== String(o.id)) return;
+    events.push({
+      label: activityLabel(entry.action) + (entry.note ? " — " + entry.note : ""),
+      at: entry.created_at
+    });
+  });
+
+  return events.sort(function (a, b) {
+    return new Date(b.at).getTime() - new Date(a.at).getTime();
+  });
+}
+
+function relatedOrdersHtml(o) {
+  const others = state.orders.filter(function (x) {
+    return x !== o && isSameCustomer(o, x);
+  });
+
+  if (!others.length) {
+    return '<p class="empty">No other orders from this customer.</p>';
+  }
+
+  return '<div class="line-list">' + others.map(function (x) {
+    return '<div class="line-item">' +
+      "<span>" + esc(formatDate(x.created_at)) + " · " +
+        '<a class="admin-inline-link" href="#order/' + esc(orderKey(x)) + '">' + esc(orderLabel(x)) + "</a>" +
+        ' <span class="muted">' + esc(itemsSummary(x)) + "</span></span>" +
+      "<span>" + money(totalOf(x)) +
+        ' <span class="status ' + statusClass(x) + '">' + esc(statusLabel(x.status)) + "</span></span>" +
+    "</div>";
+  }).join("") + "</div>";
+}
+
+function renderOrderDetail(order) {
+  if (!el.orderDetail || state.view !== "order") return;
+
+  if (state.ordersLoading) {
+    el.orderDetail.innerHTML = '<p class="empty">Loading order…</p>';
+    return;
+  }
+
+  const o = order || findOrder(state.openOrderKey);
+  if (!o) {
+    el.orderDetail.innerHTML =
+      "<h2>Order not found</h2>" +
+      '<p class="empty">That order is not in the current list. It may have been placed after this page loaded.</p>' +
+      '<div class="actions"><a class="btn-admin-outline" href="#orders">Back to orders</a></div>';
+    return;
+  }
+
   const items = itemsOf(o);
   const total = totalOf(o);
   const isUnusual = total >= UNUSUAL_TOTAL;
@@ -1102,7 +1866,19 @@ function renderOrderPanel(o) {
       "</div>"
     : "";
 
-  el.panelContent.innerHTML =
+  const history = statusHistory(o);
+  const historyHtml = history.length
+    ? '<div class="line-list">' + history.map(function (e) {
+        return '<div class="line-item"><span>' + esc(e.label) + "</span>" +
+          '<span class="muted">' + esc(formatTime(e.at)) + "</span></div>";
+      }).join("") + "</div>"
+    : '<p class="empty">No status changes recorded yet.</p>';
+
+  const backHref = "#orders";
+  if (el.pageTitle) el.pageTitle.textContent = "Order " + orderLabel(o);
+
+  el.orderDetail.innerHTML =
+    '<p class="admin-back"><a class="admin-inline-link" href="' + backHref + '">&larr; Back to orders</a></p>' +
     "<h2>Order " + esc(orderLabel(o)) + "</h2>" +
     unusualHtml +
     '<div class="detail-grid">' +
@@ -1117,9 +1893,15 @@ function renderOrderPanel(o) {
     "<h3>Status</h3>" +
     '<div class="admin-status-row"><span class="status ' + statusClass(o) + '">' + esc(statusLabel(o.status)) + "</span>" +
       paymentBadge(o) + "</div>" +
-    '<div id="panelError" class="admin-alert admin-alert-error" role="alert" hidden></div>' +
+    '<div id="orderError" class="admin-alert admin-alert-error" role="alert" hidden></div>' +
     actionsHtml +
-    contactHtml;
+    contactHtml +
+    "<h3>Status history</h3>" + historyHtml +
+    "<h3>Previous orders</h3>" + relatedOrdersHtml(o) +
+    '<div class="admin-detail-panels">' +
+      '<section class="admin-soon admin-soon--inline"><h3>Payment method</h3><p>Not connected yet.</p></section>' +
+      '<section class="admin-soon admin-soon--inline"><h3>Unusual order warning</h3><p>Not connected yet.</p></section>' +
+    "</div>";
 
   const approve = document.getElementById("approveBtn");
   if (approve) approve.addEventListener("click", function () { updateStatus(o, "APPROVED"); });
@@ -1130,7 +1912,7 @@ function renderOrderPanel(o) {
   const markPaid = document.getElementById("markPaidBtn");
   if (markPaid) markPaid.addEventListener("click", function () { confirmMarkPaid(o); });
 
-  el.panelContent.querySelectorAll(".order-next-status").forEach(function (btn) {
+  el.orderDetail.querySelectorAll(".order-next-status").forEach(function (btn) {
     btn.addEventListener("click", function () {
       const next = btn.getAttribute("data-next-status");
       if (next === "OUT_FOR_DELIVERY") {
@@ -1146,8 +1928,8 @@ async function updateStatus(order, status) {
   if (state.saving || !client) return;
 
   state.saving = true;
-  hidePanelError();
-  setPanelButtonsDisabled(true);
+  hideOrderError();
+  setOrderButtonsDisabled(true);
 
   let error = null;
   try {
@@ -1167,20 +1949,21 @@ async function updateStatus(order, status) {
   }
 
   state.saving = false;
-  setPanelButtonsDisabled(false);
+  setOrderButtonsDisabled(false);
 
   if (error) {
     // Repaint first so an unpaid order's Approve button stays disabled,
     // then surface the database message (including "must be paid").
-    renderOrderPanel(order);
-    showPanelError(error);
+    renderOrderDetail(order);
+    showOrderError(error);
     return;
   }
 
   order.status = status;
   renderOrders();
   renderCustomers();
-  renderOrderPanel(order);
+  renderDashboard();
+  renderOrderDetail(order);
 
   const action = ORDER_STATUS_ACTIONS[status] || null;
   if (!action) return;
@@ -1194,6 +1977,7 @@ async function updateStatus(order, status) {
 
   toast("Order " + orderLabel(order) + " marked " + statusLabel(status).toLowerCase() + ".");
   await loadActivity();
+  renderOrderDetail(order);
 }
 
 function confirmReject(order) {
@@ -1227,8 +2011,8 @@ async function markOrderPaid(order) {
   if (state.saving || !client) return;
 
   state.saving = true;
-  hidePanelError();
-  setPanelButtonsDisabled(true);
+  hideOrderError();
+  setOrderButtonsDisabled(true);
 
   const paidAt = new Date().toISOString();
   let error = null;
@@ -1250,17 +2034,18 @@ async function markOrderPaid(order) {
   }
 
   state.saving = false;
-  setPanelButtonsDisabled(false);
+  setOrderButtonsDisabled(false);
 
   if (error) {
-    showPanelError(error);
+    showOrderError(error);
     return;
   }
 
   order.paid_at = paidAt;
   renderOrders();
   renderCustomers();
-  renderOrderPanel(order);
+  renderDashboard();
+  renderOrderDetail(order);
 
   const log = await logActivity("ORDER_MARKED_PAID", "order", order.id);
   if (log.error) {
@@ -1270,6 +2055,7 @@ async function markOrderPaid(order) {
 
   toast("Order " + orderLabel(order) + " marked as paid.");
   await loadActivity();
+  renderOrderDetail(order);
 }
 
 /* ── Reservation actions ── */
@@ -1395,6 +2181,84 @@ async function markReservationPaid(reservation) {
 
   toast("Reservation for " + (reservation.customer_name || "guest") + " marked as paid.");
   await loadActivity();
+}
+
+/* ── Menu actions ── */
+async function setMenuAvailability(item, available) {
+  if (!client || state.menuSavingId != null) return;
+
+  state.menuActionError = null;
+  state.menuSavingId = item.id;
+  renderMenu();
+
+  let error = null;
+  try {
+    const res = await client
+      .from("menu_items")
+      .update({ available: available })
+      .eq("id", item.id);
+    if (res.error) error = res.error;
+  } catch (err) {
+    error = err;
+  }
+
+  if (error) {
+    state.menuActionError = error;
+  } else {
+    state.menu = state.menu.map(function (x) {
+      if (String(x.id) !== String(item.id)) return x;
+      const next = Object.assign({}, x);
+      next.available = available;
+      return next;
+    });
+    const log = await logActivity(
+      "MENU_ITEM_AVAILABILITY_CHANGED",
+      "menu_item",
+      item.id,
+      item.name + ": " + (available ? "Available" : "Unavailable")
+    );
+    if (log && log.error) state.menuActionError = log.error;
+  }
+
+  state.menuSavingId = null;
+  renderMenu();
+}
+
+async function saveMenuRemarks(item, remarks) {
+  if (!client || state.menuSavingRemarksId != null) return;
+
+  const id = String(item.id);
+  state.menuActionError = null;
+  state.menuSavingRemarksId = item.id;
+  state.menuRemarksDraft[id] = remarks;
+  renderMenu();
+
+  let error = null;
+  try {
+    const res = await client
+      .from("menu_items")
+      .update({ remarks: remarks })
+      .eq("id", item.id);
+    if (res.error) error = res.error;
+  } catch (err) {
+    error = err;
+  }
+
+  if (error) {
+    state.menuActionError = error;
+    state.menuRemarksDraft[id] = remarks;
+  } else {
+    state.menu = state.menu.map(function (x) {
+      if (String(x.id) !== id) return x;
+      const next = Object.assign({}, x);
+      next.remarks = remarks;
+      return next;
+    });
+    delete state.menuRemarksDraft[id];
+  }
+
+  state.menuSavingRemarksId = null;
+  renderMenu();
 }
 
 /* ── Modal ── */
@@ -1610,17 +2474,17 @@ function clearTopAlerts() {
   if (el.alertStack) el.alertStack.innerHTML = "";
 }
 
-function showTopAlert(view, message) {
+function showTopAlert(route, message) {
   if (!el.alertStack) return;
   positionAlertStack();
 
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "admin-alert-toast";
-  btn.setAttribute("data-view", view);
+  btn.setAttribute("data-route", route);
   btn.textContent = message;
   btn.addEventListener("click", function () {
-    setView(view);
+    setRoute(route);
     dismissAlert(btn);
   });
 
@@ -1677,12 +2541,12 @@ function handleNewReservation(row) {
   loadReservations({ silent: true });
 }
 
-function refreshOpenOrderPanel() {
+function refreshOpenOrder() {
   if (state.openOrderKey == null || state.saving) return;
   const fresh = state.orders.find(function (o) {
     return orderKey(o) === state.openOrderKey;
   });
-  if (fresh) renderOrderPanel(fresh);
+  if (fresh) renderOrderDetail(fresh);
 }
 
 function handleOrderUpdated(row, oldRow) {
@@ -1708,7 +2572,7 @@ function handleOrderUpdated(row, oldRow) {
       updateBadges();
     }
 
-    loadOrders({ silent: true }).then(refreshOpenOrderPanel);
+    loadOrders({ silent: true }).then(refreshOpenOrder);
     return;
   }
 
@@ -1718,7 +2582,7 @@ function handleOrderUpdated(row, oldRow) {
   playBeep();
   showTopAlert("orders", "Order " + orderLabel(row) + " was cancelled by the customer");
 
-  loadOrders({ silent: true }).then(refreshOpenOrderPanel);
+  loadOrders({ silent: true }).then(refreshOpenOrder);
   loadActivity({ silent: true });
 }
 
@@ -1843,6 +2707,22 @@ async function boot() {
   else showLogin();
 }
 
+function syncNavAfterResize() {
+  positionAlertStack();
+  if (!state.authed) return;
+
+  if (isNarrowScreen()) {
+    // Desktop collapse state means nothing on a phone; the drawer is
+    // always closed until it is opened explicitly.
+    document.body.classList.remove("admin-nav-collapsed");
+    el.sidebarBackdrop.hidden = !document.body.classList.contains("admin-nav-open");
+  } else {
+    document.body.classList.remove("admin-nav-open");
+    el.sidebarBackdrop.hidden = true;
+  }
+  el.menuBtn.setAttribute("aria-expanded", navIsOpen() ? "true" : "false");
+}
+
 function init() {
   cacheElements();
 
@@ -1851,7 +2731,7 @@ function init() {
 
   if (el.enableAlerts) el.enableAlerts.addEventListener("click", handleEnableAlerts);
   document.addEventListener("visibilitychange", handleVisibilityChange);
-  window.addEventListener("resize", positionAlertStack);
+  window.addEventListener("resize", syncNavAfterResize);
   // Browsers only allow audio after a gesture; unlock it on the first one.
   document.addEventListener("pointerdown", function () { ensureAudio(); }, { once: true });
 
@@ -1859,16 +2739,42 @@ function init() {
   updateAlertsButton();
   updateTitle();
 
-  document.querySelectorAll(".admin-tabs button").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      setView(btn.getAttribute("data-view"));
+  el.menuBtn.addEventListener("click", toggleNav);
+  el.sidebarClose.addEventListener("click", function () { setNavOpen(false); });
+  el.sidebarBackdrop.addEventListener("click", function () { setNavOpen(false); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && state.authed && navIsOpen()) setNavOpen(false);
+  });
+
+  // The links navigate by themselves through their hash; this only closes
+  // the phone overlay and blocks the "Detail" link when no order is open.
+  document.querySelectorAll(".admin-sidebar-nav [data-route]").forEach(function (link) {
+    link.addEventListener("click", function (e) {
+      if (link.getAttribute("aria-disabled") === "true") {
+        e.preventDefault();
+        return;
+      }
+      dismissNavOverlay();
     });
+  });
+
+  window.addEventListener("hashchange", function () {
+    if (!state.authed) return;
+    const route = parseRoute();
+    applyRoute(route.name, route.param, false);
   });
 
   el.customerSearch.addEventListener("input", function (e) {
     state.customerSearch = e.target.value;
     renderCustomers();
   });
+
+  if (el.menuSearch) {
+    el.menuSearch.addEventListener("input", function (e) {
+      state.menuSearch = e.target.value;
+      renderMenu();
+    });
+  }
 
   // Reservation buttons are re-rendered often, so delegate the clicks.
   el.reservationsList.addEventListener("click", function (e) {
@@ -1890,9 +2796,6 @@ function init() {
       confirmCancelReservation(reservation);
     }
   });
-
-  el.panelClose.addEventListener("click", closePanel);
-  el.panelBackdrop.addEventListener("click", closePanel);
 
   el.modalCancel.addEventListener("click", closeModal);
   el.modalConfirm.addEventListener("click", function () {

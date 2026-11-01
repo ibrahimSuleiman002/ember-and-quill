@@ -1,0 +1,40 @@
+-- ═══════════════════════════════════════════════════════════════
+--  Ember & Quill — menu management (SCHEMA APPLIED — DO NOT RUN)
+--
+--  This migration was applied MANUALLY against the live project on
+--  2026-10-31 and the real database differs from the old draft of
+--  this file. Nothing in this file needs to be executed. Re-running
+--  an old copy would conflict with the live schema.
+--
+--  Live schema:
+--
+--  public.menu_items  (base table, admin-only via public.is_admin())
+--    id, category_id, name, slug, description, price, image_path,
+--    sort_order, available (boolean, renamed from is_available),
+--    remarks, updated_at, updated_by, created_at
+--
+--  public.menu_public  (view — customers, anon + authenticated)
+--    id, slug, name, category, description, price, image_url,
+--    available, sort_order
+--    (no remarks, no updated_by)
+--
+--  public.menu_admin  (view — admins only, read-only)
+--    same columns as menu_public plus remarks and updated_at
+--
+--  Rules enforced in the live database:
+--    • A trigger on public.orders rejects inserts containing an
+--      unavailable dish with: "One or more dishes are unavailable"
+--    • A trigger maintains updated_at / updated_by on menu_items
+--
+--  Application code contract:
+--    • Customer pages (menu.js) read from menu_public using the
+--      view's column names (image_url, category, available).
+--    • The admin Menu tab (admin.js) reads the list from menu_admin
+--      and writes changes with UPDATE public.menu_items SET
+--      available / remarks WHERE id = — never to the views.
+--    • Availability toggles are logged to activity_log as
+--      MENU_ITEM_AVAILABILITY_CHANGED.
+--
+--  This project never reads or writes any table whose name starts
+--  with iris_.
+-- ═══════════════════════════════════════════════════════════════

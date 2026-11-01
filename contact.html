@@ -72,6 +72,29 @@
       </div>
     </section>
 
+    <!-- WHATSAPP ROUTER: pick a reason, then continue with the message
+         already written. The number comes from WHATSAPP_NUMBER in site.js,
+         which is derived from siteConfig.phoneIntl in menu.js. -->
+    <section>
+      <div class="contact-block">
+        <h3>Why are you contacting us?</h3>
+        <div class="wa-reasons" id="waReasons" role="radiogroup" aria-label="Why are you contacting us?"></div>
+
+        <div class="wa-followup" id="waFollowup" hidden>
+          <div class="order-field">
+            <label for="waName">Your name <span class="order-optional">(optional)</span></label>
+            <input class="order-input" id="waName" name="waName" type="text" autocomplete="name" placeholder="e.g. Adaeze">
+          </div>
+          <div class="order-field" id="waMessageField" hidden>
+            <label for="waMessage">Your message</label>
+            <textarea class="order-input wa-textarea" id="waMessage" name="waMessage" rows="3" placeholder="Tell us what you need"></textarea>
+          </div>
+          <a class="btn-wa-green" id="waContinue" target="_blank" rel="noopener">Continue on WhatsApp</a>
+          <p class="wa-note" id="waNote">Add a short message so we know what you need.</p>
+        </div>
+      </div>
+    </section>
+
     <!-- GOOGLE MAP: Replace the q parameter below with the exact address when confirmed -->
     <section>
       <div class="map-container">
@@ -89,6 +112,7 @@
 
   <script src="menu.js"></script>
   <script src="site.js"></script>
+  <script src="contact.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="supabase-config.js"></script>
   <script src="auth.js"></script>

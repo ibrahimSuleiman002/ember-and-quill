@@ -382,6 +382,98 @@ nav {
   line-height: 1.6;
 }
 
+/* ── Contact page: "Why are you contacting us?" WhatsApp picker ── */
+.wa-reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.wa-reason {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 48px;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-weight: 600;
+  color: var(--heading);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.wa-reason:hover {
+  border-color: var(--accent);
+}
+
+.wa-reason input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  flex: 0 0 auto;
+}
+
+.wa-reason:has(input:checked) {
+  border-color: var(--accent);
+  background-color: rgba(255, 90, 54, 0.08);
+}
+
+.wa-followup {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.wa-followup[hidden] {
+  display: none;
+}
+
+.wa-textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.wa-note {
+  margin: 0.6rem 0 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.wa-note[hidden] {
+  display: none;
+}
+
+.btn-wa-green {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 48px;
+  padding: 1rem 1.5rem;
+  border-radius: 4px;
+  background-color: #25D366;
+  color: #062A14;
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  transition: filter 0.25s ease, transform 0.25s ease;
+}
+
+.btn-wa-green:hover {
+  filter: brightness(1.08);
+  transform: translateY(-2px);
+}
+
+.btn-wa-green.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+  transform: none;
+}
+
 /* ── Text panel ── */
 .text-panel {
   background-color: var(--panel);
@@ -2098,5 +2190,78 @@ body.acct-lock {
   .my-order-actions .btn {
     width: 100%;
   }
+}
+
+/* ── Public menu availability + loading states ── */
+.menu-loading {
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 0.75rem 0;
+  list-style: none;
+}
+
+.menu-load-error {
+  background-color: rgba(255, 90, 54, 0.12);
+  border: 1px solid rgba(255, 90, 54, 0.4);
+  border-radius: 6px;
+  color: #FF8A70;
+  padding: 0.9rem 1rem;
+  list-style: none;
+}
+
+.menu-load-error strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.menu-load-error p {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.menu-unavailable-badge {
+  display: inline-block;
+  margin-bottom: 0.25rem;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid rgba(169, 184, 176, 0.35);
+  border-radius: 999px;
+  background-color: rgba(169, 184, 176, 0.16);
+  color: #D7DEE3;
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1.5;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.menu-card--unavailable {
+  opacity: 0.68;
+}
+
+.menu-card--unavailable .menu-card-img {
+  filter: grayscale(0.75);
+}
+
+.menu-item--unavailable {
+  opacity: 0.68;
+}
+
+.order-menu-notice {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(232, 163, 61, 0.4);
+  border-radius: 6px;
+  background-color: rgba(232, 163, 61, 0.12);
+  color: #E8C07A;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.order-menu-notice[hidden] {
+  display: none;
 }
 

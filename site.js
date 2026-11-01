@@ -2,6 +2,12 @@
 //  Shared nav/footer renderer + brand helper for all pages
 // ═══════════════════════════════════════════════════════════════
 
+// The single place the WhatsApp number is derived. wa.me wants the
+// international number as digits only: country code first, no "+",
+// no spaces, no trunk "0". Change siteConfig.phoneIntl in menu.js and
+// every WhatsApp link on the site follows.
+const WHATSAPP_NUMBER = siteConfig.phoneIntl.replace(/[^0-9]/g, "");
+
 function renderNav(activePage) {
   const pages = [
     { href: 'index.html', label: 'Home', key: 'home' },
@@ -108,42 +114,22 @@ function fmtPrice(n) {
 }
 
 // Shared full-menu renderer. menu.html and the landing page both call
-// this, so categories, dishes and prices come from siteConfig.menu only.
+// this with rows loaded from the customer-safe public.menu_public view.
 // `variant === 'landing'` opts into the responsive photo-card grid.
-function renderMenuSections(variant) {
-  const cardsClass = variant === 'landing' ? 'menu-cards menu-cards--landing' : 'menu-cards';
-  return siteConfig.menu.map(cat => `
-    <section>
-      <div class="text-panel">
-        <h2 class="menu-category-title">${cat.category}</h2>
-        <div class="${cardsClass}">
-          ${cat.items.map(item => `
-            <article class="menu-card">
-              <img class="menu-card-img" src="images/${item.image}" alt="${item.name} — Ember & Quill menu photo" loading="lazy">
-              <div class="menu-card-body">
-                <h3 class="menu-card-name">${item.name}</h3>
-                <p class="menu-card-desc">${item.desc}</p>
-                <div class="menu-card-price">${fmtPrice(item.price)}</div>
-              </div>
-            </article>
-          `).join('')}
-        </div>
-      </div>
-    </section>
-  `).join('');
+function renderMenuSections(items, variant) {
+  if (!window.eqMenu) return '';
+  return window.eqMenu.renderSections(items, variant);
 }
 
 function getWhatsAppLink(message) {
-  const waNumber = siteConfig.phoneIntl.replace('+', '');
   const msg = message || "Hello, I'd like to place an order.";
-  return `https://wa.me/${waNumber}?text=${encodeURIComponent(msg)}`;
+  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
 }
 
 function renderCallButtons() {
   const callHTML = `Call ${siteConfig.phone}`;
   const waHTML = `WhatsApp ${siteConfig.phone}`;
   const telHref = `tel:${siteConfig.phoneIntl}`;
-  const waNumber = siteConfig.phoneIntl.replace('+', '');
 
   const btn = (id, href, text, cls) => {
     const el = document.getElementById(id);
@@ -151,11 +137,11 @@ function renderCallButtons() {
   };
 
   btn('callBtn1', telHref, callHTML);
-  btn('waBtn1', `https://wa.me/${waNumber}`, waHTML);
+  btn('waBtn1', `https://wa.me/${WHATSAPP_NUMBER}`, waHTML);
   btn('callBtn2', telHref, callHTML);
-  btn('waBtn2', `https://wa.me/${waNumber}`, waHTML);
+  btn('waBtn2', `https://wa.me/${WHATSAPP_NUMBER}`, waHTML);
   btn('callBtn3', telHref, callHTML);
-  btn('waBtn3', `https://wa.me/${waNumber}`, waHTML);
+  btn('waBtn3', `https://wa.me/${WHATSAPP_NUMBER}`, waHTML);
 }
 
 document.addEventListener('DOMContentLoaded', () => {

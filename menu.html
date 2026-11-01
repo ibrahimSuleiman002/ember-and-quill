@@ -48,7 +48,33 @@
   <script src="supabase-config.js"></script>
   <script src="auth.js"></script>
   <script>
-    document.getElementById('menuContent').innerHTML = renderMenuSections();
+    (function () {
+      var mount = document.getElementById('menuContent');
+
+      function showError() {
+        mount.innerHTML =
+          '<div class="menu-load-error" role="alert">' +
+            '<strong>We could not load the menu right now.</strong>' +
+            '<p>Please refresh the page or try again in a moment.</p>' +
+          '</div>';
+      }
+
+      function render(items, error) {
+        if (error) {
+          showError();
+          return;
+        }
+        mount.innerHTML = renderMenuSections(items);
+      }
+
+      mount.innerHTML = '<p class="menu-loading">Loading menu…</p>';
+
+      if (window.eqMenu) {
+        window.eqMenu.watch(render);
+      } else {
+        showError();
+      }
+    })();
   </script>
 </body>
 </html>
