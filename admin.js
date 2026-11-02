@@ -4,6 +4,8 @@
 //  Ember & Quill — Admin dashboard
 //  Live data from Supabase: public.orders, public.reservations and
 //  public.activity_log. No sample data.
+//  Iris data comes through the read-only admin_iris_stats /
+//  admin_iris_orders functions; this page never writes to an iris_ table.
 //  Admin users sign in with Supabase Auth; the session persists
 //  across refreshes. Customers can only insert orders/reservations.
 //  The activity log is append-only: this page only inserts and
@@ -65,6 +67,14 @@ const RESERVATION_LABELS = {
   CANCELLED: "Cancelled"
 };
 
+// Iris orders come from the admin_iris_orders RPC and are read-only here:
+// this page never writes to an iris_ table.
+const IRIS_STATS_RPC = "admin_iris_stats";
+const IRIS_ORDERS_RPC = "admin_iris_orders";
+
+const SOURCE_FILTERS = ["ALL", "WEBSITE", "IRIS"];
+const SOURCE_FILTER_LABELS = { ALL: "All", WEBSITE: "Website", IRIS: "Iris" };
+
 // One address per page: #dashboard, #orders, #order/<id>, #customers,
 // #menu, #reservations, #wallet, #settings, #activity.
 const ROUTES = {
@@ -100,12 +110,19 @@ const UNUSUAL_TOTAL = 100000;
 const state = {
   view: DEFAULT_ROUTE,
   statusFilter: "ALL",
+  sourceFilter: "ALL",
   resFilter: "ALL",
   customerSearch: "",
   orders: [],
   reservations: [],
   activity: [],
   menu: [],
+  irisOrders: [],
+  irisStats: null,
+  irisLoading: true,
+  irisError: null,
+  irisStatsError: null,
+  irisUpdatedAt: null,
   ordersLoading: true,
   ordersError: null,
   resLoading: true,
@@ -138,6 +155,26 @@ function money(n) {
   return "₦" + (Number(n) || 0).toLocaleString("en-NG");
 }
 
+// Iris stores money in minor units (kobo), so every Iris amount is divided by
+// 100 here. Kobo only show up when there are actually kobo to show.
+function moneyMinor(minor, currency) {
+  const cur = String(currency || "NGN").toUpperCase();
+  const kobo = Math.round(Number(minor) || 0);
+  // Kobo are only shown when there are kobo, and then always as two decimals.
+  const text = (kobo / 100).toLocaleString("en-NG", {
+    minimumFractionDigits: kobo % 100 ? 2 : 0,
+    maximumFractionDigits: 2
+  });
+  return cur === "NGN" ? "₦" + text : cur + " " + text;
+}
+
+function amountTextOf(o) {
+  if (isIrisOrder(o)) {
+    return o.total_minor == null ? "—" : moneyMinor(o.total_minor, o.currency);
+  }
+  return money(totalOf(o));
+}
+
 function esc(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, function (m) {
     return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m];
@@ -154,7 +191,33 @@ function statusLabel(s) {
 }
 
 function statusClass(o) {
+  if (isIrisOrder(o)) return irisStatusClass(o.status);
   return STATUS_ORDER.indexOf(o.status) !== -1 ? "status-" + o.status : "status-UNKNOWN";
+}
+
+// Iris keeps its own status text. It is not documented in this codebase, so
+// anything that lines up with the website vocabulary gets the matching colour
+// and everything else falls back to the neutral unknown style.
+function irisStatusClass(s) {
+  const key = String(s || "").toUpperCase();
+  return STATUS_ORDER.indexOf(key) !== -1 ? "status-" + key : "status-UNKNOWN";
+}
+
+function prettyValue(s) {
+  return String(s == null ? "" : s)
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, function (c) { return c.toUpperCase(); })
+    .trim();
+}
+
+function irisStatusLabel(s) {
+  const key = String(s || "").toUpperCase();
+  if (STATUS_LABELS[key]) return STATUS_LABELS[key];
+  return prettyValue(s) || "Unknown";
+}
+
+function isIrisPaid(o) {
+  return ["PAID", "CONFIRMED", "SETTLED"].indexOf(String(o.payment_status || "").toUpperCase()) !== -1;
 }
 
 function isUnpaidPending(o) {
@@ -162,16 +225,22 @@ function isUnpaidPending(o) {
 }
 
 function paymentBadge(o) {
+  if (isIrisOrder(o)) {
+    if (isIrisPaid(o)) return '<span class="tag tag-paid">Paid</span>';
+    if (o.payment_status) {
+      return '<span class="tag tag-awaiting">' + esc(irisStatusLabel(o.payment_status)) + "</span>";
+    }
+    return '<span class="tag tag-awaiting">No payment recorded</span>';
+  }
   if (o.paid_at) return '<span class="tag tag-paid">Paid</span>';
   if (o.status === "PENDING_APPROVAL") return '<span class="tag tag-awaiting">Awaiting payment</span>';
   return "";
 }
 
-function orderMatchesFilter(o, filter) {
-  if (filter === "ALL") return true;
-  if (filter === "AWAITING_PAYMENT") return isUnpaidPending(o);
-  if (filter === "PAID_READY") return o.status === "PENDING_APPROVAL" && !!o.paid_at;
-  return o.status === filter;
+function sourceBadge(o) {
+  return isIrisOrder(o)
+    ? '<span class="tag tag-source-iris">Iris</span>'
+    : '<span class="tag tag-source-website">Website</span>';
 }
 
 // An order only counts as income once it is paid and has not been
@@ -217,13 +286,43 @@ function resStatusClass(s) {
 }
 
 function orderLabel(o) {
+  if (isIrisOrder(o)) {
+    const n = o.order_number;
+    return n === null || n === undefined || n === "" ? "IRIS-—" : String(n);
+  }
   const n = o.order_no;
   if (n === null || n === undefined || n === "") return "ORD-—";
   return "ORD-" + String(n).padStart(4, "0");
 }
 
 function orderKey(o) {
-  return String(o.id != null ? o.id : o.order_no);
+  return (isIrisOrder(o) ? "iris-" : "") + String(o.id != null ? o.id : (o.order_no || o.order_number));
+}
+
+// An Iris row is looked up from the merged list by key, so the detail page,
+// the links and the badges all resolve the source from the row itself.
+function isIrisOrder(o) {
+  return !!o && o.__src === "iris";
+}
+
+// Iris rows speak `requested_at`; website rows were placed when created.
+function orderDateOf(o) {
+  return isIrisOrder(o) ? (o.requested_at || o.created_at) : o.created_at;
+}
+
+function orderMatchesFilter(o, filter) {
+  if (filter === "ALL") return true;
+  if (isIrisOrder(o)) {
+    // The website chips are about the website flow; an Iris row only joins a
+    // chip when its own status text says the same thing.
+    const irisStatus = String(o.status || "").toUpperCase();
+    if (filter === "AWAITING_PAYMENT") return !isIrisPaid(o);
+    if (filter === "PAID_READY") return isIrisPaid(o) && irisStatus === "PENDING_APPROVAL";
+    return irisStatus === filter;
+  }
+  if (filter === "AWAITING_PAYMENT") return isUnpaidPending(o);
+  if (filter === "PAID_READY") return o.status === "PENDING_APPROVAL" && !!o.paid_at;
+  return o.status === filter;
 }
 
 function totalOf(o) {
@@ -231,6 +330,15 @@ function totalOf(o) {
 }
 
 function itemsOf(o) {
+  if (isIrisOrder(o)) {
+    return (Array.isArray(o.items) ? o.items : []).map(function (it) {
+      return {
+        name: it.name,
+        qty: Number(it.quantity) || 0,
+        price: (Number(it.unit_price_minor) || 0) / 100
+      };
+    });
+  }
   if (Array.isArray(o.items)) return o.items;
   if (typeof o.items === "string") {
     try {
@@ -349,6 +457,7 @@ function cacheElements() {
 
   el.dashboardBody = document.getElementById("dashboardBody");
   el.filters = document.getElementById("statusFilters");
+  el.sourceFilters = document.getElementById("sourceFilters");
   el.orderStats = document.getElementById("orderStats");
   el.ordersList = document.getElementById("ordersList");
   el.reservationFilters = document.getElementById("reservationFilters");
@@ -410,6 +519,12 @@ function resetDataState() {
   state.reservations = [];
   state.activity = [];
   state.menu = [];
+  state.irisOrders = [];
+  state.irisStats = null;
+  state.irisUpdatedAt = null;
+  state.irisLoading = true;
+  state.irisError = null;
+  state.irisStatsError = null;
   state.ordersLoading = true;
   state.resLoading = true;
   state.activityLoading = true;
@@ -434,6 +549,7 @@ function setLoggedOut() {
   stopPolling();
   resetDataState();
   state.statusFilter = "ALL";
+  state.sourceFilter = "ALL";
   state.resFilter = "ALL";
   state.customerSearch = "";
   state.menuSearch = "";
@@ -586,7 +702,85 @@ async function handleSignOut() {
 
 /* ── Data ── */
 function loadDashboard() {
-  return Promise.all([loadOrders(), loadReservations(), loadActivity(), loadMenu()]);
+  return Promise.all([loadOrders(), loadReservations(), loadActivity(), loadMenu(), loadIris()]);
+}
+
+// Iris rows are read through the two admin-only RPC functions. Nothing here
+// writes: the iris_ tables belong to Iris.
+function tagIrisOrders(rows) {
+  return (Array.isArray(rows) ? rows : []).map(function (r) {
+    return Object.assign({}, r, { __src: "iris" });
+  });
+}
+
+function irisSignature(rows) {
+  return rows.map(function (r) {
+    return [r.id, r.status, r.payment_status, r.total_minor, r.order_number].join(":");
+  }).join("|");
+}
+
+async function loadIris(opts) {
+  if (!client) return;
+  const silent = !!(opts && opts.silent);
+
+  if (!silent) {
+    state.irisLoading = true;
+    state.irisError = null;
+    state.irisStatsError = null;
+    renderOrders();
+    renderDashboard();
+  }
+
+  let stats = null;
+  let orders = null;
+  let statsError = null;
+  let ordersError = null;
+
+  try {
+    const res = await client.rpc(IRIS_STATS_RPC);
+    if (res.error) statsError = res.error;
+    else stats = res.data;
+  } catch (err) {
+    statsError = err;
+  }
+
+  try {
+    const res = await client.rpc(IRIS_ORDERS_RPC);
+    if (res.error) ordersError = res.error;
+    else orders = res.data;
+  } catch (err) {
+    ordersError = err;
+  }
+
+  // A failed stats read never invents a number: numbers already on screen stay
+  // there behind a "could not refresh" note, and only a first-load failure puts
+  // the error phrase on the cards.
+  let changed = !silent;
+
+  if (stats) {
+    changed = changed || JSON.stringify(stats) !== JSON.stringify(state.irisStats);
+    state.irisStats = stats;
+    state.irisStatsError = null;
+  } else {
+    changed = changed || !state.irisStatsError;
+    state.irisStatsError = statsError;
+  }
+
+  if (orders) {
+    const tagged = tagIrisOrders(orders);
+    changed = changed || irisSignature(tagged) !== irisSignature(state.irisOrders);
+    state.irisOrders = tagged;
+    state.irisError = null;
+    state.irisUpdatedAt = Date.now();
+  } else if (!silent) {
+    state.irisError = ordersError;
+    state.irisOrders = [];
+  }
+
+  state.irisLoading = false;
+  if (!changed) return;
+  renderOrders();
+  renderDashboard();
 }
 
 async function loadOrders(opts) {
@@ -1001,8 +1195,79 @@ function dashboardSignature() {
     state.ordersError ? 1 : 0,
     state.menuError ? 1 : 0,
     ordersSignature(state.orders),
-    menuSignature(state.menu)
+    menuSignature(state.menu),
+    state.irisLoading ? 1 : 0,
+    state.irisStatsError ? 1 : 0,
+    state.irisError ? 1 : 0,
+    irisSignature(state.irisOrders),
+    state.irisStats ? JSON.stringify(state.irisStats) : "-"
   ].join("::");
+}
+
+const IRIS_ERROR_TEXT = "Could not load Iris data";
+
+function irisNum(v) {
+  if (v === null || v === undefined) return "—";
+  return Number(v).toLocaleString("en-NG");
+}
+
+// Three cards, and never a made-up figure: while the first read is in flight
+// they show a dash, and if it failed they say so. A later failed refresh keeps
+// the last real numbers and only changes the note.
+function irisCardsHtml() {
+  const stats = state.irisStats;
+
+  if (state.irisStatsError && !stats) {
+    return ["Iris conversations", "Iris orders", "Iris order value"].map(function (label) {
+      return '<div class="admin-stat admin-stat--iris admin-stat--error">' +
+        '<span class="admin-stat-label">' + esc(label) + "</span>" +
+        '<span class="admin-stat-value">' + esc(IRIS_ERROR_TEXT) + "</span>" +
+        '<span class="admin-stat-note"><button type="button" class="btn-admin-ghost" data-iris-retry="1">Try again</button></span>' +
+      "</div>";
+    }).join("");
+  }
+
+  const staleNote = state.irisStatsError ? "Could not refresh Iris data" : "";
+
+  if (!stats) {
+    return ["Iris conversations", "Iris orders", "Iris order value"].map(function (label) {
+      return '<div class="admin-stat admin-stat--iris">' +
+        '<span class="admin-stat-label">' + esc(label) + "</span>" +
+        '<span class="admin-stat-value">—</span>' +
+        '<span class="admin-stat-note">Loading…</span>' +
+      "</div>";
+    }).join("");
+  }
+
+  const open = stats.chats_open == null ? null : Number(stats.chats_open);
+
+  return '<div class="admin-stat admin-stat--iris">' +
+      '<span class="admin-stat-label">Iris conversations</span>' +
+      '<span class="admin-stat-value">' + esc(irisNum(stats.chats_total)) + "</span>" +
+      '<span class="admin-stat-note">' + (staleNote
+        ? esc(staleNote)
+        : open === null ? "—" : open === 1 ? "1 open now" : irisNum(open) + " open now") + "</span>" +
+    "</div>" +
+    '<div class="admin-stat admin-stat--iris">' +
+      '<span class="admin-stat-label">Iris orders</span>' +
+      '<span class="admin-stat-value">' + esc(irisNum(stats.orders_total)) + "</span>" +
+      '<span class="admin-stat-note">' + (staleNote ? esc(staleNote) : "The 200 newest are listed under Orders") + "</span>" +
+    "</div>" +
+    '<div class="admin-stat admin-stat--iris">' +
+      '<span class="admin-stat-label">Iris order value</span>' +
+      '<span class="admin-stat-value">' + esc(stats.orders_value_minor == null
+        ? "—"
+        : moneyMinor(stats.orders_value_minor, "NGN")) + "</span>" +
+      '<span class="admin-stat-note">' + (staleNote ? esc(staleNote) : "All Iris orders, before refunds") + "</span>" +
+    "</div>";
+}
+
+function irisSectionHtml() {
+  return '<section class="admin-chart-card admin-iris-card">' +
+    "<h2>Iris</h2>" +
+    '<div class="admin-stats-grid">' + irisCardsHtml() + "</div>" +
+    '<p class="admin-chart-note">Read-only from the Iris functions. Website totals above do not include Iris orders.</p>' +
+  "</section>";
 }
 
 function renderDashboard() {
@@ -1012,14 +1277,23 @@ function renderDashboard() {
   if (sig === state.dashboardSig) return;
   state.dashboardSig = sig;
 
+  const bindIrisRetry = function () {
+    el.dashboardBody.querySelectorAll("[data-iris-retry]").forEach(function (b) {
+      b.addEventListener("click", function () { loadIris(); });
+    });
+  };
+
   if (state.ordersLoading || state.menuLoading) {
     destroyCharts();
-    el.dashboardBody.innerHTML = '<p class="empty">Loading dashboard…</p>';
+    el.dashboardBody.innerHTML = '<p class="empty">Loading dashboard…</p>' + irisSectionHtml();
+    bindIrisRetry();
     return;
   }
   if (state.ordersError) {
     destroyCharts();
     renderLoadError(el.dashboardBody, state.ordersError, loadOrders);
+    el.dashboardBody.insertAdjacentHTML("beforeend", irisSectionHtml());
+    bindIrisRetry();
     return;
   }
 
@@ -1033,6 +1307,7 @@ function renderDashboard() {
       statCard("Total orders", String(data.totalOrders), "All orders on record") +
       statCard("Total customers", String(data.totalCustomers), "Distinct customers who ordered") +
     "</div>" +
+    irisSectionHtml() +
     '<div class="admin-chart-grid">' +
       '<section class="admin-chart-card">' +
         "<h2>Monthly revenue</h2>" +
@@ -1057,6 +1332,7 @@ function renderDashboard() {
       '<p class="admin-chart-note">The chart library did not load, so the two charts above show their data as text-only totals. Everything else still works.</p>');
 
   buildCharts(data);
+  bindIrisRetry();
 }
 
 async function logActivity(action, targetType, targetId, note) {
@@ -1086,6 +1362,26 @@ function renderFilters() {
     b.addEventListener("click", function () {
       state.statusFilter = b.getAttribute("data-status");
       renderFilters();
+      renderOrders();
+    });
+  });
+}
+
+function renderSourceFilters() {
+  if (!el.sourceFilters) return;
+  el.sourceFilters.innerHTML = SOURCE_FILTERS.map(function (key) {
+    const count = key === "ALL" ? allOrders().length
+      : key === "IRIS" ? state.irisOrders.length
+      : state.orders.length;
+    return '<button type="button" class="filter-btn' + (state.sourceFilter === key ? " active" : "") +
+      '" data-source="' + key + '">' + esc(SOURCE_FILTER_LABELS[key] || key) +
+      ' <span class="filter-count">' + count + "</span></button>";
+  }).join("");
+
+  el.sourceFilters.querySelectorAll(".filter-btn").forEach(function (b) {
+    b.addEventListener("click", function () {
+      state.sourceFilter = b.getAttribute("data-source");
+      renderSourceFilters();
       renderOrders();
     });
   });
@@ -1288,6 +1584,34 @@ function renderOrderStats() {
     statCard("Cancelled", cancelledPct + "%", cancelled + " of " + orders.length + " orders");
 }
 
+// Website orders plus Iris orders in one newest-first list. The Iris rows are
+// copies tagged with __src so the shared renderers know where to read from.
+function allOrders() {
+  let rows;
+  if (state.sourceFilter === "WEBSITE") rows = state.orders.slice();
+  else if (state.sourceFilter === "IRIS") rows = state.irisOrders.slice();
+  else rows = state.orders.concat(state.irisOrders);
+
+  return rows.sort(function (a, b) {
+    const ta = new Date(orderDateOf(a) || 0).getTime() || 0;
+    const tb = new Date(orderDateOf(b) || 0).getTime() || 0;
+    return tb - ta;
+  });
+}
+
+function orderStatusText(o) {
+  return isIrisOrder(o) ? irisStatusLabel(o.status) : statusLabel(o.status);
+}
+
+// Payment gets its own labelled cell now, so the order-number cell doesn't
+// repeat it.
+function paymentCellText(o) {
+  if (isIrisOrder(o)) return irisStatusLabel(o.payment_status || "Not recorded");
+  if (o.paid_at) return "Paid";
+  if (o.status === "PENDING_APPROVAL") return "Awaiting payment";
+  return "—";
+}
+
 function renderOrders() {
   renderOrderStats();
 
@@ -1300,41 +1624,59 @@ function renderOrders() {
     return;
   }
 
-  const orders = state.orders.filter(function (o) {
+  const irisNote = state.irisError
+    ? '<p class="admin-table-note admin-table-note--warn">' + esc(IRIS_ERROR_TEXT) +
+      ' — showing website orders only. <button type="button" class="btn-admin-ghost" data-iris-retry="1">Try again</button></p>'
+    : (state.sourceFilter !== "WEBSITE" && state.irisOrders.length
+      ? '<p class="admin-table-note">Iris orders are read-only and refresh every 30 seconds (the 200 newest).</p>'
+      : "");
+
+  const orders = allOrders().filter(function (o) {
     return orderMatchesFilter(o, state.statusFilter);
   });
 
+  const bind = function () {
+    el.ordersList.querySelectorAll("[data-iris-retry]").forEach(function (b) {
+      b.addEventListener("click", function () { loadIris(); });
+    });
+  };
+
   if (!orders.length) {
-    el.ordersList.innerHTML = '<p class="empty">' +
-      (state.orders.length ? "No orders match this filter." : "No orders yet.") +
+    el.ordersList.innerHTML = irisNote + '<p class="empty">' +
+      (allOrders().length ? "No orders match this filter." : "No orders yet.") +
       "</p>";
+    bind();
     return;
   }
 
   el.ordersList.innerHTML =
+    irisNote +
     '<div class="admin-table-wrap">' +
       '<table class="admin-table admin-table--orders">' +
         "<thead><tr>" +
-          "<th>Date</th><th>Order ID</th><th>Items</th><th>Amount</th><th>Status</th><th></th>" +
+          "<th>Date</th><th>Order ID</th><th>Items</th><th>Amount</th><th>Status</th><th>Payment</th><th></th>" +
         "</tr></thead>" +
         "<tbody>" +
           orders.map(function (o) {
             const total = totalOf(o);
-            const unusual = total >= UNUSUAL_TOTAL ? '<span class="tag tag-unusual">Unusual</span>' : "";
+            const unusual = !isIrisOrder(o) && total >= UNUSUAL_TOTAL
+              ? '<span class="tag tag-unusual">Unusual</span>' : "";
             const cancelled = o.status === "CANCELLED" ? '<span class="tag tag-cancelled">Cancelled</span>' : "";
             return '<tr class="order-row" data-order-key="' + esc(orderKey(o)) + '">' +
-              '<td data-label="Date">' + esc(formatDate(o.created_at)) + "</td>" +
+              '<td data-label="Date">' + esc(formatDate(orderDateOf(o))) + "</td>" +
               '<td data-label="Order ID"><span class=\'order-number\'>' + esc(orderLabel(o)) + "</span>" +
-                "<div class='order-card-tags'>" + unusual + paymentBadge(o) + cancelled + "</div></td>" +
+                "<div class='order-card-tags'>" + sourceBadge(o) + unusual + cancelled + "</div></td>" +
               '<td class=\'admin-table-items\' data-label="Items">' + esc(itemsSummary(o)) + "</td>" +
-              '<td class=\'admin-table-amount\' data-label="Amount">' + money(total) + "</td>" +
-              '<td data-label="Status"><span class="status ' + statusClass(o) + '">' + esc(statusLabel(o.status)) + "</span></td>" +
+              '<td class=\'admin-table-amount\' data-label="Amount">' + esc(amountTextOf(o)) + "</td>" +
+              '<td data-label="Status"><span class="status ' + statusClass(o) + '">' + esc(orderStatusText(o)) + "</span></td>" +
+              '<td data-label="Payment">' + esc(paymentCellText(o)) + "</td>" +
               '<td data-label=""><a class=\'btn-admin-outline admin-view-btn\' href=\'#order/' + esc(orderKey(o)) + "'>View</a></td>" +
             "</tr>";
           }).join("") +
         "</tbody>" +
       "</table>" +
     "</div>";
+  bind();
 }
 
 function customerGroups() {
@@ -1564,6 +1906,7 @@ function renderActivity() {
 
 function renderAll() {
   renderFilters();
+  renderSourceFilters();
   renderReservationFilters();
   renderDashboard();
   renderOrders();
@@ -1681,8 +2024,15 @@ function setRoute(name, param) {
 /* ── Order detail page ── */
 function findOrder(key) {
   if (key == null) return null;
+  const want = String(key);
+  if (want.indexOf("iris-") === 0) {
+    const id = want.slice(5);
+    return state.irisOrders.find(function (o) {
+      return orderKey(o) === want || String(o.id) === id;
+    }) || null;
+  }
   return state.orders.find(function (o) {
-    return orderKey(o) === String(key);
+    return orderKey(o) === want;
   }) || null;
 }
 
@@ -1794,6 +2144,60 @@ function relatedOrdersHtml(o) {
   }).join("") + "</div>";
 }
 
+// Read-only view of an Iris order. Iris owns this flow, so there are no
+// approve/payment controls here and nothing on this page writes to the
+// iris_ tables.
+function renderIrisOrderDetail(o) {
+  const phone = o.customer_phone || "";
+  const currency = o.currency;
+
+  const itemsHtml = (Array.isArray(o.items) ? o.items : []).map(function (it) {
+    const qty = Number(it.quantity) || 0;
+    const unit = Number(it.unit_price_minor) || 0;
+    return '<div class="line-item"><span>' + esc(it.name || "Item") +
+      ' <span class="muted">× ' + qty + " @ " + esc(moneyMinor(unit, currency)) + "</span></span>" +
+      "<span>" + esc(moneyMinor(unit * qty, currency)) + "</span></div>";
+  }).join("");
+
+  const backHref = "#orders";
+  if (el.pageTitle) el.pageTitle.textContent = "Order " + orderLabel(o);
+
+  el.orderDetail.innerHTML =
+    '<p class="admin-back"><a class="admin-inline-link" href="' + backHref + '">&larr; Back to orders</a></p>' +
+    '<h2>Order ' + esc(orderLabel(o)) + " " + sourceBadge(o) + "</h2>" +
+    '<div class="detail-grid">' +
+      "<div><span class='label'>Customer</span><div class='value'>" + esc(o.customer_name || "Unknown customer") + "</div></div>" +
+      "<div><span class='label'>Phone</span><div class='value'>" + esc(phone || "—") + "</div></div>" +
+      "<div><span class='label'>Email</span><div class='value'>" + esc(o.customer_email || "—") + "</div></div>" +
+      "<div><span class='label'>Fulfilment</span><div class='value'>" + esc(prettyValue(o.fulfillment) || "—") + "</div></div>" +
+      "<div><span class='label'>Address</span><div class='value'>" + esc(o.address || "—") + "</div></div>" +
+      "<div><span class='label'>Requested</span><div class='value'>" + esc(o.requested_at ? formatTime(o.requested_at) : "—") + "</div></div>" +
+    "</div>" +
+    (o.notes
+      ? "<h3>Notes</h3><p class='reservation-notes'>" + esc(o.notes) + "</p>"
+      : "") +
+    "<h3>Items</h3>" +
+    '<div class="line-list">' + (itemsHtml || '<p class="empty">No items recorded.</p>') + "</div>" +
+    (o.subtotal_minor !== undefined && o.subtotal_minor !== null
+      ? '<div class="line-item"><span>Subtotal</span><span>' + esc(moneyMinor(o.subtotal_minor, currency)) + "</span></div>"
+      : "") +
+    '<div class="line-item total"><span>Total</span><span>' + esc(amountTextOf(o)) + "</span></div>" +
+    "<h3>Status</h3>" +
+    '<div class="admin-status-row"><span class="status ' + statusClass(o) + '">' + esc(irisStatusLabel(o.status)) + "</span>" +
+      '<span class="tag ' + (isIrisPaid(o) ? "tag-paid" : "tag-awaiting") + '">' +
+        esc(prettyValue(o.payment_status) || "No payment recorded") + "</span></div>" +
+    '<section class="admin-soon admin-soon--inline">' +
+      "<h3>Managed by Iris</h3>" +
+      "<p>Managed by Iris. Approve and payment actions connect later.</p>" +
+    "</section>" +
+    (phone
+      ? '<div class="actions">' +
+          '<a class="btn-admin-outline" href="tel:' + esc(phoneIntl(phone)) + '">Call ' + esc(phone) + "</a>" +
+          '<a class="btn-admin-outline" href="https://wa.me/' + esc(waNumber(phone)) + '" target="_blank" rel="noopener">WhatsApp</a>' +
+        "</div>"
+      : "");
+}
+
 function renderOrderDetail(order) {
   if (!el.orderDetail || state.view !== "order") return;
 
@@ -1802,7 +2206,17 @@ function renderOrderDetail(order) {
     return;
   }
 
+  // An Iris key only resolves once the Iris read has come back.
+  if (!order && state.irisLoading && String(state.openOrderKey || "").indexOf("iris-") === 0) {
+    el.orderDetail.innerHTML = '<p class="empty">Loading order…</p>';
+    return;
+  }
+
   const o = order || findOrder(state.openOrderKey);
+  if (o && isIrisOrder(o)) {
+    renderIrisOrderDetail(o);
+    return;
+  }
   if (!o) {
     el.orderDetail.innerHTML =
       "<h2>Order not found</h2>" +
@@ -2666,6 +3080,8 @@ function startPolling() {
     loadOrders({ silent: true });
     loadReservations({ silent: true });
     loadActivity({ silent: true });
+    // Iris has no realtime feed here; the same 30s beat re-reads it.
+    loadIris({ silent: true });
   }, POLL_MS);
 }
 

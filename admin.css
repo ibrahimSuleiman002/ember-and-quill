@@ -1681,6 +1681,48 @@ body.admin-nav-open .admin-sidebar-backdrop { opacity: 1; }
   color: var(--muted);
 }
 
+.admin-table-note--warn {
+  color: #E8C07A;
+}
+
+.admin-stat--iris .admin-stat-label {
+  color: var(--accent);
+}
+
+/* "Could not load Iris data" is a sentence, not a figure — it cannot sit at
+   display size in a card. */
+.admin-stat--error .admin-stat-value {
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #E8C07A;
+}
+
+.admin-iris-card {
+  margin-bottom: 1rem;
+}
+
+.admin-iris-card .admin-stats-grid {
+  margin-top: 0.75rem;
+}
+
+.tag-source-iris {
+  background: rgba(255, 90, 54, 0.14);
+  color: #FF8A70;
+  border: 1px solid rgba(255, 90, 54, 0.36);
+}
+
+.tag-source-website {
+  background: rgba(169, 184, 176, 0.14);
+  color: #D7DEE3;
+  border: 1px solid rgba(169, 184, 176, 0.3);
+}
+
+.filter-count {
+  font-weight: 600;
+  opacity: 0.65;
+}
+
 /* Orders and Customers put one table inside a card grid — the table has to
    span every column, otherwise it gets squeezed into one card track and
    scrolls sideways. */
@@ -1730,20 +1772,24 @@ body.admin-nav-open .admin-sidebar-backdrop { opacity: 1; }
   border-bottom: 0;
 }
 
-/* Orders: Date / Order ID / Items / Amount / Status / View.
-   Only Items is fluid. The table renders when the list has room for these
-   five fixed columns plus a usable Items column; below that the rows switch
-   to the stacked layout (see the admin-list container query at the end). */
+/* Orders: Date / Order ID / Items / Amount / Status / Payment / View.
+   Only Items is fluid. Every other column is set to the width its widest
+   realistic value needs on one line (measured, not guessed), so nothing gets
+   cut off; the table renders only when the list has room for those six plus a
+   usable Items column — below 840px the rows switch to the stacked layout
+   (see the admin-list container query at the end). */
 .admin-table--orders th:nth-child(1),
-.admin-table--orders td:nth-child(1) { width: 126px; }
+.admin-table--orders td:nth-child(1) { width: 136px; }
 .admin-table--orders th:nth-child(2),
-.admin-table--orders td:nth-child(2) { width: 138px; }
+.admin-table--orders td:nth-child(2) { width: 140px; }
 .admin-table--orders th:nth-child(4),
-.admin-table--orders td:nth-child(4) { width: 96px; }
+.admin-table--orders td:nth-child(4) { width: 106px; }
 .admin-table--orders th:nth-child(5),
-.admin-table--orders td:nth-child(5) { width: 132px; }
+.admin-table--orders td:nth-child(5) { width: 150px; }
 .admin-table--orders th:nth-child(6),
-.admin-table--orders td:nth-child(6) { width: 56px; }
+.admin-table--orders td:nth-child(6) { width: 112px; }
+.admin-table--orders th:nth-child(7),
+.admin-table--orders td:nth-child(7) { width: 84px; }
 
 .admin-table--orders td:nth-child(1),
 .admin-table--orders td:nth-child(2),
@@ -1751,9 +1797,21 @@ body.admin-nav-open .admin-sidebar-backdrop { opacity: 1; }
   white-space: nowrap;
 }
 
-/* The badge itself must never break across lines inside its column. */
+/* The badge itself must never break across lines inside its column. Status and
+   Payment columns are sized for the labels we know, so an unexpected long
+   Iris label wraps onto a second line here instead of being cut off. */
 .admin-table .status {
   white-space: nowrap;
+}
+
+.admin-table--orders .status {
+  white-space: normal;
+}
+
+/* The source / Unusual / Cancelled badges are inline pills; in the table they
+   have to be allowed to wrap inside the Order ID cell. */
+.admin-table--orders .order-card-tags {
+  white-space: normal;
 }
 
 /* Customers: Name / Email / Phone / Orders / Total spent / Since / Actions.
@@ -1940,8 +1998,11 @@ body.admin-nav-open .admin-sidebar-backdrop { opacity: 1; }
 
 /* Narrow list (phone, or a small desktop window with the sidebar open):
    each table row becomes a stacked card, so there is never a sideways
-   scroll. Column names come from the td data-label attributes. */
-@container admin-list (max-width: 680px) {
+   scroll. Column names come from the td data-label attributes. The seven
+   orders columns need 728px on their own, so the switch happens at 840px of
+   list width — that is a 1160px window with the sidebar open, and anything
+   narrower reads better as cards than as a squeezed table. */
+@container admin-list (max-width: 840px) {
   .admin-table thead {
     display: none;
   }
