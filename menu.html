@@ -47,9 +47,12 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="supabase-config.js"></script>
   <script src="auth.js"></script>
+  <script src="tracking-code.js"></script>
   <script>
     (function () {
       var mount = document.getElementById('menuContent');
+      var nameToItem = {};
+      var pendingSwap = {};
 
       function showError() {
         mount.innerHTML =
@@ -59,12 +62,65 @@
           '</div>';
       }
 
+      function updateCategoryBadges() {
+        if (!window.eqCart) return;
+        var totals = {};
+        window.eqCart.lines().forEach(function (line) {
+          var item = nameToItem[line.name];
+          if (item) {
+            var cat = String(item.category || 'Menu');
+            totals[cat] = (totals[cat] || 0) + line.qty;
+          }
+        });
+        Array.prototype.forEach.call(mount.querySelectorAll('[data-cat-cart]'), function (node) {
+          var n = totals[node.getAttribute('data-cat-cart')] || 0;
+          node.textContent = String(n);
+          node.hidden = n === 0;
+        });
+      }
+
+      function rebuildFooter(name) {
+        var item = nameToItem[name];
+        if (!item || !window.eqMenu) return;
+        var card = null;
+        Array.prototype.forEach.call(mount.querySelectorAll('.menu-card'), function (el) {
+          if (el.getAttribute('data-menu-slug') === item.slug) card = el;
+        });
+        if (!card) return;
+        var body = card.querySelector('.menu-card-body');
+        var footer = body ? body.querySelector('.menu-card-footer, .menu-card-price') : null;
+        if (!footer) return;
+        var holder = document.createElement('div');
+        holder.innerHTML = eqMenu.cardFooter(item);
+        footer.replaceWith(holder.firstChild);
+      }
+
+      function rebuildFooters() {
+        Object.keys(nameToItem).forEach(function (name) {
+          if (!pendingSwap[name]) rebuildFooter(name);
+        });
+      }
+
       function render(items, error) {
         if (error) {
           showError();
           return;
         }
+        nameToItem = {};
+        items.forEach(function (item) { nameToItem[item.name] = item; });
+
+        // A dish that went unavailable leaves the cart silently here;
+        // the order page explains the removal in detail.
+        if (window.eqCart) {
+          eqCart.prune(function (line) {
+            var item = nameToItem[line.name];
+            return !!item && item.available;
+          });
+        }
+
         mount.innerHTML = renderMenuSections(items);
+        if (window.eqMenu) eqMenu.bindAccordions(mount);
+        updateCategoryBadges();
       }
 
       mount.innerHTML = '<p class="menu-loading">Loading menu…</p>';
@@ -73,6 +129,50 @@
         window.eqMenu.watch(render);
       } else {
         showError();
+      }
+
+      // One delegated listener survives the 30s re-renders: Add buttons,
+      // the −/+ steppers that replace them, and category badge refresh.
+      mount.addEventListener('click', function (event) {
+        if (!window.eqCart) return;
+
+        var add = event.target.closest ? event.target.closest('.menu-add-btn') : null;
+        if (add) {
+          var addName = add.getAttribute('data-add-name');
+          var addItem = nameToItem[addName];
+          if (!addItem || !addItem.available) return;
+          // Claim the footer before touching the cart: eqCart.change() emits
+          // synchronously and the listener would rebuild this footer into the
+          // −/+ stepper, leaving the confirmation to be written on a node
+          // that is no longer in the page.
+          pendingSwap[addName] = true;
+          add.textContent = '✓ Added to cart';
+          add.classList.add('menu-add-btn--added');
+          eqCart.change(addName, Number(add.getAttribute('data-add-price')) || 0, 1);
+          if (window.eqCartFeedback) window.eqCartFeedback(addName, add);
+          setTimeout(function () {
+            delete pendingSwap[addName];
+            rebuildFooter(addName);
+          }, 1500);
+          return;
+        }
+
+        var step = event.target.closest ? event.target.closest('.qty-btn') : null;
+        if (step) {
+          var stepName = step.getAttribute('data-item-name');
+          var stepItem = nameToItem[stepName];
+          if (!stepItem || !stepItem.available) return;
+          var delta = step.getAttribute('data-action') === 'plus' ? 1 : -1;
+          eqCart.change(stepName, stepItem.price, delta);
+          if (delta > 0 && window.eqCartFeedback) window.eqCartFeedback(stepName, step);
+        }
+      });
+
+      if (window.eqCart) {
+        window.eqCart.onChange(function () {
+          updateCategoryBadges();
+          rebuildFooters();
+        });
       }
     })();
   </script>

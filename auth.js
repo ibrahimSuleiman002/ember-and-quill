@@ -181,9 +181,9 @@
   }
 
   // After an order or reservation is saved, keep the profile in step with
-  // the details the customer just typed. A saved name is never overwritten;
-  // only missing fields are filled in.
-  async function rememberCheckoutDetails(fullName, phone) {
+  // the details the customer just typed. A saved value is never overwritten;
+  // only missing fields are filled in, so the next order prefills completely.
+  async function rememberCheckoutDetails(fullName, phone, address) {
     try {
       await ready;
       if (!client || !user) return null;
@@ -191,15 +191,19 @@
       var saved = await loadProfile(false);
       var savedName = String((saved && saved.full_name) || '').trim();
       var savedPhone = String((saved && saved.phone) || '').trim();
+      var savedAddress = String((saved && saved.address) || '').trim();
       var nextName = savedName || String(fullName || '').trim();
       var nextPhone = savedPhone || String(phone || '').trim();
+      var nextAddress = savedAddress || String(address || '').trim();
 
-      if (nextName === savedName && nextPhone === savedPhone) return saved;
+      if (nextName === savedName && nextPhone === savedPhone && nextAddress === savedAddress) {
+        return saved;
+      }
 
       return await saveProfile({
         full_name: nextName,
         phone: nextPhone,
-        address: (saved && saved.address) || ''
+        address: nextAddress
       });
     } catch (err) {
       return null;

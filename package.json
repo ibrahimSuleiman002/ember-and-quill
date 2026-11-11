@@ -1,0 +1,19 @@
+{
+  "name": "ember-and-quill",
+  "version": "0.0.0",
+  "private": true,
+  "description": "End-to-end Playwright tests for the Ember & Quill customer site.",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:desktop": "playwright test --project=desktop",
+    "test:phone": "playwright test --project=phone",
+    "test:live-order": "playwright test live-order.spec.js",
+    "test:real-auth": "cross-env E2E_REAL_AUTH=1 playwright test real-auth.spec.js --reporter=list"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "cross-env": "^10.1.0",
+    "serve": "^14.2.4"
+  }
+}

@@ -2074,6 +2074,48 @@ body.acct-lock {
   align-self: flex-start;
 }
 
+/* Banner shown right after checkout created the account */
+.my-orders-banner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(160, 176, 168, 0.45);
+  border-radius: 8px;
+  background-color: rgba(160, 176, 168, 0.12);
+  color: var(--sage);
+}
+
+.my-orders-banner[hidden] {
+  display: none;
+}
+
+.my-orders-banner-text {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.my-orders-banner-close {
+  flex: none;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--sage);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* The order placed moments ago */
+.my-order-is-new {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
 .my-orders-head {
   display: flex;
   flex-wrap: wrap;
@@ -2265,3 +2307,597 @@ body.acct-lock {
   display: none;
 }
 
+
+/* ═══════════════════════════════════════════════════════════
+   SHARED CART — header button, backdrop, slide-in panel
+   ═══════════════════════════════════════════════════════════ */
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.nav-links {
+  margin-left: auto;
+}
+
+@media (max-width: 1023px) {
+  .nav-right {
+    margin-left: auto;
+  }
+}
+
+.nav-cart {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.nav-cart svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.nav-cart:hover {
+  color: var(--accent);
+}
+
+.nav-cart-badge {
+  position: absolute;
+  top: 1px;
+  right: 0;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background-color: var(--accent);
+  color: #1A0F08;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* display:flex above beats the browser's own [hidden] rule, so say it again */
+.nav-cart-badge[hidden] {
+  display: none;
+}
+
+/* Dimmed backdrop behind the mobile nav and the cart panel */
+.site-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background-color: rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.site-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Cart panel — slides in from the right on every page */
+.cart-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1200;
+  width: min(360px, 90vw);
+  display: flex;
+  flex-direction: column;
+  background-color: var(--panel);
+  backdrop-filter: blur(12px);
+  border-left: 1px solid var(--border);
+  transform: translateX(105%);
+  visibility: hidden;
+  transition: transform 0.3s ease, visibility 0.3s ease;
+}
+
+.cart-panel.open {
+  transform: none;
+  visibility: visible;
+}
+
+.cart-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.cart-panel-title {
+  font-family: 'Fraunces', serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--heading);
+}
+
+.cart-panel-count {
+  color: var(--sage);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.cart-panel-count:empty {
+  display: none;
+}
+
+.cart-panel-close {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+}
+
+.cart-panel-close:hover {
+  color: var(--accent);
+}
+
+.cart-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem 1.25rem;
+}
+
+.cart-empty {
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+.cart-line {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.cart-line:last-child {
+  border-bottom: none;
+}
+
+.cart-line-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.cart-line-name {
+  color: var(--heading);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.cart-line-remove {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cart-line-remove:hover {
+  color: var(--accent);
+}
+
+.cart-line-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.cart-line-price {
+  color: var(--sage);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cart-panel-foot {
+  padding: 1rem 1.25rem 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.cart-panel-foot[hidden] {
+  display: none;
+}
+
+.cart-foot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  color: var(--heading);
+  font-weight: 700;
+}
+
+.cart-place-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.cart-place-total {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Compact details form inside the checkout panel */
+.cart-details {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.cart-details[hidden] {
+  display: none;
+}
+
+.cart-details-title {
+  font-family: 'Fraunces', serif;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--heading);
+  margin-bottom: 0.75rem;
+}
+
+.cart-field {
+  margin-bottom: 0.75rem;
+}
+
+.cart-field label {
+  display: block;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.25rem;
+}
+
+/* Phones: the panel is exactly as tall as the screen, and a checkout form
+   plus two dishes just overflowed it, pushing "Delivery address" out of
+   sight. Tightening the chrome keeps two dishes and all four fields on
+   screen; from three dishes up the body scrolls and the Place order bar
+   stays pinned below it. Input heights are untouched — 44px touch targets. */
+@media (max-width: 767px) {
+  .cart-panel-head {
+    padding: 0.75rem 1rem;
+  }
+
+  .cart-panel-body {
+    padding: 0.5rem 1rem 0.75rem;
+  }
+
+  .cart-line {
+    padding: 0.5rem 0;
+  }
+
+  .cart-details {
+    margin-top: 0.875rem;
+    padding-top: 0.75rem;
+  }
+
+  .cart-field {
+    margin-bottom: 0.5rem;
+  }
+
+  .cart-panel-foot {
+    padding: 0.75rem 1rem 1rem;
+  }
+}
+
+.cart-message {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.cart-message[hidden] {
+  display: none;
+}
+
+.cart-message-error {
+  border: 1px solid rgba(214, 69, 65, 0.45);
+  background-color: rgba(214, 69, 65, 0.14);
+  color: #F0A9A7;
+}
+
+.cart-message-success {
+  border: 1px solid rgba(160, 176, 168, 0.45);
+  background-color: rgba(160, 176, 168, 0.12);
+  color: var(--sage);
+}
+
+.cart-success-title {
+  color: var(--heading);
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.cart-success-text {
+  margin: 0;
+}
+
+.cart-field-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.cart-error-login {
+  display: block;
+  margin-top: 0.75rem;
+  padding: 0.45rem 1.25rem;
+  font-size: 0.9375rem;
+}
+
+.cart-error-login[hidden] {
+  display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   EXPANDABLE MENU CATEGORIES (menu.html + order.html)
+   ═══════════════════════════════════════════════════════════ */
+.menu-cat-head {
+  margin-bottom: 1rem;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.menu-cat-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.5rem 0;
+  background: none;
+  border: none;
+  border-bottom: 2px solid var(--border);
+  cursor: pointer;
+  text-align: left;
+}
+
+.menu-cat-arrow {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-right: 2px solid var(--sage);
+  border-bottom: 2px solid var(--sage);
+  transform: rotate(-45deg);
+  transition: transform 0.2s ease;
+}
+
+.menu-cat-toggle[aria-expanded="true"] .menu-cat-arrow {
+  transform: rotate(45deg);
+}
+
+.menu-cat-name {
+  font-family: 'Fraunces', serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.menu-cat-count {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.menu-cat-cart {
+  min-width: 22px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background-color: var(--accent);
+  color: #1A0F08;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+}
+
+.menu-cat-cart[hidden] {
+  display: none;
+}
+
+.cat-closed .menu-cat-body {
+  display: none;
+}
+
+/* Add button on full-menu cards (menu.html only) */
+.menu-add-btn {
+  flex-shrink: 0;
+  padding: 0.3rem 0.9rem;
+  border: 1.5px solid var(--sage);
+  border-radius: 4px;
+  background-color: transparent;
+  color: var(--sage);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.menu-add-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ADDED-TO-CART FEEDBACK — toast, badge bounce, fly dot
+   ═══════════════════════════════════════════════════════════ */
+.cart-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 1300;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: min(480px, 92vw);
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background-color: var(--panel);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  pointer-events: none;
+}
+
+.cart-toast[hidden] {
+  display: none;
+}
+
+.cart-toast--show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.cart-toast-text {
+  color: var(--heading);
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cart-toast-view {
+  flex-shrink: 0;
+  padding: 0.25rem 0.75rem;
+  border: 1.5px solid var(--accent);
+  border-radius: 4px;
+  background: none;
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cart-toast-view:hover {
+  background-color: var(--accent);
+  color: #1A0F08;
+}
+
+@media (max-width: 767px) {
+  .cart-toast {
+    bottom: 84px;
+  }
+}
+
+@keyframes cart-bounce-kf {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+.cart-bounce {
+  animation: cart-bounce-kf 0.45s ease;
+}
+
+.cart-fly-dot {
+  position: fixed;
+  z-index: 1400;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background-color: var(--accent);
+  pointer-events: none;
+  transition: transform 0.55s cubic-bezier(0.3, 0.6, 0.4, 1), opacity 0.55s ease;
+}
+
+/* Add button while it shows "✓ Added to cart" */
+.menu-add-btn--added {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  color: #1A0F08;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PHONE STICKY CART BAR (menu.html + order.html)
+   ═══════════════════════════════════════════════════════════ */
+.cart-sticky-bar {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .cart-sticky-bar {
+    position: fixed;
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    z-index: 1150;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: calc(100% - 1.5rem);
+    padding: 0.8rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background-color: var(--panel);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .cart-sticky-bar[hidden] {
+    display: none;
+  }
+
+  .cart-sticky-info {
+    color: var(--heading);
+    font-size: 0.875rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .cart-sticky-cta {
+    color: var(--accent);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+}

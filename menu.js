@@ -137,6 +137,39 @@ const siteConfig = {
     return groups;
   }
 
+  // Full-menu cards show an Add button; once the dish is in the shared
+  // cart the button becomes a −/+ stepper, same as the order page.
+  function cardFooter(item, variant) {
+    var price = priceText(item.price);
+    if (variant === 'landing') {
+      return '<div class="menu-card-price">' + price + '</div>';
+    }
+    if (!item.available) {
+      return '<div class="menu-card-footer"><span class="menu-card-price">' + price + '</span></div>';
+    }
+
+    var name = escapeHtml(item.name);
+    var qty = window.eqCart ? window.eqCart.qtyOf(item.name) : 0;
+
+    if (qty > 0) {
+      return '' +
+        '<div class="menu-card-footer">' +
+          '<span class="menu-card-price">' + price + '</span>' +
+          '<div class="qty-stepper" role="group" aria-label="Quantity for ' + name + '">' +
+            '<button type="button" class="qty-btn" data-action="minus" data-item-name="' + name + '" aria-label="Remove one ' + name + '">&minus;</button>' +
+            '<span class="qty-value" data-item-name="' + name + '">' + qty + '</span>' +
+            '<button type="button" class="qty-btn" data-action="plus" data-item-name="' + name + '" aria-label="Add one ' + name + '">+</button>' +
+          '</div>' +
+        '</div>';
+    }
+
+    return '' +
+      '<div class="menu-card-footer">' +
+        '<span class="menu-card-price">' + price + '</span>' +
+        '<button type="button" class="menu-add-btn" data-add-name="' + name + '" data-add-price="' + (Number(item.price) || 0) + '">Add</button>' +
+      '</div>';
+  }
+
   function card(item, variant) {
     var unavailable = !item.available;
     var name = escapeHtml(item.name);
@@ -149,22 +182,75 @@ const siteConfig = {
           (unavailable ? '<span class="menu-unavailable-badge">Unavailable</span>' : '') +
           '<h3 class="menu-card-name">' + name + '</h3>' +
           '<p class="menu-card-desc">' + escapeHtml(item.description) + '</p>' +
-          '<div class="menu-card-price">' + priceText(item.price) + '</div>' +
+          cardFooter(item, variant) +
         '</div>' +
       '</article>';
   }
 
+  // Accordion state survives the 30s menu re-render. Phones start with
+  // only the first category open; wider screens start fully open.
+  var catOpenState = {};
+
+  function categoryOpen(cat, index) {
+    if (!(cat in catOpenState)) {
+      var phone = window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
+      catOpenState[cat] = !phone || index === 0;
+    }
+    return catOpenState[cat];
+  }
+
+  function accordionHead(cat, items, index) {
+    var open = categoryOpen(cat, index);
+    var name = escapeHtml(cat);
+    return '' +
+      '<h3 class="menu-category-title menu-cat-head">' +
+        '<button type="button" class="menu-cat-toggle" data-cat-toggle="' + name + '" aria-expanded="' + (open ? 'true' : 'false') + '">' +
+          '<span class="menu-cat-arrow" aria-hidden="true"></span>' +
+          '<span class="menu-cat-name">' + name + '</span>' +
+          '<span class="menu-cat-count">' + items.length + ' ' + (items.length === 1 ? 'dish' : 'dishes') + '</span>' +
+          '<span class="menu-cat-cart" data-cat-cart="' + name + '" hidden>0</span>' +
+        '</button>' +
+      '</h3>';
+  }
+
+  function bindAccordions(container) {
+    if (!container) return;
+    Array.prototype.forEach.call(container.querySelectorAll('[data-cat-toggle]'), function (btn) {
+      btn.addEventListener('click', function () {
+        var cat = btn.getAttribute('data-cat-toggle');
+        var open = !categoryOpen(cat, 0);
+        catOpenState[cat] = open;
+        var section = btn.closest('.menu-category');
+        if (section) section.classList.toggle('cat-closed', !open);
+        btn.setAttribute('aria-expanded', String(open));
+      });
+    });
+  }
+
   function renderSections(items, variant) {
     var cardsClass = variant === 'landing' ? 'menu-cards menu-cards--landing' : 'menu-cards';
+    var accordion = variant !== 'landing';
 
-    return group(items).map(function (cat) {
+    return group(items).map(function (cat, index) {
+      var body = '<div class="' + cardsClass + ' menu-cat-body">' +
+        cat.items.map(function (item) { return card(item, variant); }).join('') +
+        '</div>';
+
+      if (!accordion) {
+        return '' +
+          '<section>' +
+            '<div class="text-panel">' +
+              '<h2 class="menu-category-title">' + escapeHtml(cat.category) + '</h2>' +
+              body +
+            '</div>' +
+          '</section>';
+      }
+
       return '' +
         '<section>' +
-          '<div class="text-panel">' +
-            '<h2 class="menu-category-title">' + escapeHtml(cat.category) + '</h2>' +
-            '<div class="' + cardsClass + '">' +
-              cat.items.map(function (item) { return card(item, variant); }).join('') +
-            '</div>' +
+          '<div class="text-panel menu-category' + (categoryOpen(cat.category, index) ? '' : ' cat-closed') + '">' +
+            accordionHead(cat.category, cat.items, index) +
+            body +
           '</div>' +
         '</section>';
     }).join('');
@@ -228,6 +314,8 @@ const siteConfig = {
     priceText: priceText,
     renderSections: renderSections,
     renderHighlights: renderHighlights,
+    cardFooter: cardFooter,
+    bindAccordions: bindAccordions,
     watch: watch,
     escapeHtml: escapeHtml
   };

@@ -32,7 +32,7 @@
       <div class="text-panel" style="text-align:center;">
         <p class="section-label">Order Online</p>
         <h1 class="section-title">Place Your Order</h1>
-        <p class="section-text">Pick your dishes below, tell us where to bring them, and we'll confirm your order shortly.</p>
+        <p class="section-text">Pick your dishes below, then open the cart (next to the three lines) to add your details and place your order.</p>
       </div>
     </section>
 
@@ -44,51 +44,7 @@
       </div>
       <div id="orderMenuNotice" class="order-menu-notice" role="status" aria-live="polite" hidden></div>
       <div id="orderMenu"></div>
-    </section>
-
-    <!-- Customer details + order summary -->
-    <section id="order-details">
-      <div class="text-panel">
-        <h2 class="section-title">Your details</h2>
-
-        <form id="orderForm" class="order-form" novalidate>
-          <div class="order-fields">
-            <div class="order-field">
-              <label for="orderName">Full name</label>
-              <input class="order-input" id="orderName" name="name" type="text" autocomplete="name" placeholder="e.g. Ada Obi" required>
-            </div>
-            <div class="order-field">
-              <label for="orderPhone">Phone number</label>
-              <input class="order-input" id="orderPhone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="e.g. 0803 123 4567" required>
-            </div>
-            <div class="order-field">
-              <label for="orderEmail">Email <span class="order-optional">(optional)</span></label>
-              <input class="order-input" id="orderEmail" name="email" type="email" autocomplete="email" placeholder="you@example.com">
-            </div>
-            <div class="order-field full">
-              <label for="orderAddress">Delivery address</label>
-              <input class="order-input" id="orderAddress" name="address" type="text" autocomplete="street-address" placeholder="Street, area, city" required>
-            </div>
-          </div>
-
-          <div class="order-summary-wrap">
-            <h3 class="order-summary-title">Your order <span class="order-count" id="orderCount">0</span></h3>
-            <div class="order-summary" id="orderSummary" aria-live="polite"></div>
-            <div class="order-total-row">
-              <span>Total</span>
-              <span class="order-total-amount" id="orderTotal">₦0</span>
-            </div>
-          </div>
-
-          <div id="orderError" class="order-message order-error" role="alert" hidden></div>
-          <div id="orderSuccess" class="order-message order-success" role="status" aria-live="polite" tabindex="-1" hidden>
-            <p class="order-success-text" id="orderStatusLine"></p>
-          </div>
-
-          <button type="submit" id="placeOrderBtn" class="btn btn-primary order-submit">Place Order</button>
-          <p class="order-note">No payment details needed — we confirm every order before delivery. We never ask for card numbers or CVV.</p>
-        </form>
-      </div>
+      <p class="order-note">No payment details needed — we confirm every order before delivery. We never ask for card numbers or CVV.</p>
     </section>
 
   </main>

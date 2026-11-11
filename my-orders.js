@@ -22,6 +22,9 @@
   var reloadAgain = false;
   var lastLoadOk = false;      // true only when the last load returned without errors
   var activeTab = null;        // 'orders' | 'reservations'
+  var autoAccount = null;      // set once when checkout just created this account
+  var newOrderId = null;       // order to highlight for that visit
+  var highlighted = false;     // the scroll happens only the first time
   var ui = {};
 
   var ORDER_LABELS = {
@@ -51,6 +54,9 @@
   function cacheElements() {
     ui.list = $('myOrdersList');
     ui.message = $('myOrdersMessage');
+    ui.banner = $('myOrdersBanner');
+    ui.bannerText = $('myOrdersBannerText');
+    ui.bannerClose = $('myOrdersBannerClose');
     ui.gate = $('myOrdersGate');
     ui.login = $('myOrdersLogin');
     ui.refresh = $('myOrdersRefresh');
@@ -300,7 +306,7 @@
     return '';
   }
 
-  function orderCard(order) {
+  function orderCard(order, isNew) {
     var status = String(order.status || '');
     var items = itemsOf(order.items);
 
@@ -336,7 +342,8 @@
         '</div>'
       : '';
 
-    return '<article class="track-card">' +
+    return '<article class="track-card' + (isNew ? ' my-order-is-new' : '') + '"' +
+        (isNew ? ' data-new-order="1"' : '') + '>' +
       '<div class="track-card-head">' +
         '<h2 class="track-card-title">Order ' + esc(orderLabel(order)) + '</h2>' +
         '<span class="track-pill ' + orderPillClass(status) + '">' +
@@ -478,7 +485,9 @@
       activeTab = newestTab();
     }
 
-    var ordersBody = sortedOrders.map(orderCard).join('');
+    var ordersBody = sortedOrders.map(function (order) {
+      return orderCard(order, !!newOrderId && String(order.id) === newOrderId);
+    }).join('');
     var reservationsBody = sortedReservations.map(reservationCard).join('');
 
     ui.list.innerHTML =
@@ -488,6 +497,15 @@
       '</div>' +
       panelHtml('orders', 'Orders (' + sortedOrders.length + ')', ordersBody, emptyOrdersHtml(), activeTab === 'orders') +
       panelHtml('reservations', 'Reservations (' + sortedReservations.length + ')', reservationsBody, emptyReservationsHtml(), activeTab === 'reservations');
+
+    // The order placed moments ago is the one the customer came to see.
+    if (newOrderId && !highlighted) {
+      var fresh = ui.list.querySelector('[data-new-order]');
+      if (fresh) {
+        highlighted = true;
+        fresh.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+    }
   }
 
   // ── Messages / toast ───────────────────────────────────────
@@ -504,6 +522,34 @@
     if (!ui.message) return;
     ui.message.hidden = true;
     ui.message.textContent = '';
+  }
+
+  // ── Just-ordered banner (auto-created account) ─────────────
+
+  // Checkout hands over through sessionStorage, once: a reload or a second
+  // visit must not repeat the message.
+  function readAutoAccount() {
+    try {
+      var raw = window.sessionStorage.getItem('eq_auto_account_v1');
+      if (!raw) return null;
+      window.sessionStorage.removeItem('eq_auto_account_v1');
+      var saved = JSON.parse(raw);
+      return saved && typeof saved === 'object' ? saved : null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function showAutoBanner() {
+    if (!ui.banner || !autoAccount) return;
+    var email = autoAccount.email || 'your email';
+    ui.bannerText.textContent = "Order placed! We've created your account and sent a link to " +
+      email + ' so you can set a password.';
+    ui.banner.hidden = false;
+  }
+
+  function hideAutoBanner() {
+    if (ui.banner) ui.banner.hidden = true;
   }
 
   function errorText(err) {
@@ -867,6 +913,10 @@
       openLogin();
     });
 
+    if (ui.bannerClose) {
+      ui.bannerClose.addEventListener('click', hideAutoBanner);
+    }
+
     if (ui.refresh) {
       ui.refresh.addEventListener('click', reloadList);
     }
@@ -942,6 +992,10 @@
     if (!ui.list) return;
 
     bindEvents();
+
+    autoAccount = readAutoAccount();
+    newOrderId = autoAccount && autoAccount.orderId ? String(autoAccount.orderId) : null;
+    if (autoAccount) showAutoBanner();
 
     if (typeof authUI === 'undefined' || !authUI) {
       if (ui.loading) ui.loading.hidden = true;

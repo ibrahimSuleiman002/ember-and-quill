@@ -1,23 +1,18 @@
 // ═══════════════════════════════════════════════════════════════
-//  order.js — customer order flow
-//  Renders the menu with quantity pickers, keeps the cart in
-//  localStorage (so it survives the login box), then INSERTs one
-//  row into public.orders. `user_id` is filled in by the database.
+//  order.js — dish picking on the order page
+//  Renders the menu with quantity steppers on top of the shared
+//  site-wide cart (window.eqCart in site.js). Checkout — details
+//  form, validation, submit and live status — lives in the cart
+//  panel, also in site.js, so this page keeps no form of its own.
 // ═══════════════════════════════════════════════════════════════
 
 (function () {
   'use strict';
 
-  var CART_KEY = 'eq_cart_v1';
-
-  // The one client created in supabase-config.js, shared with auth.js.
-  var client = window.eqSupabase || null;
-
-  // Cart lines: { name, price, qty }
-  var cart = [];
   var menuItems = [];
   var menuByName = {};
   var ui = {};
+  var catOpenState = {};
 
   function $(id) {
     return document.getElementById(id);
@@ -26,18 +21,6 @@
   function cacheElements() {
     ui.menu = $('orderMenu');
     ui.menuNotice = $('orderMenuNotice');
-    ui.form = $('orderForm');
-    ui.name = $('orderName');
-    ui.phone = $('orderPhone');
-    ui.email = $('orderEmail');
-    ui.address = $('orderAddress');
-    ui.summary = $('orderSummary');
-    ui.total = $('orderTotal');
-    ui.count = $('orderCount');
-    ui.submit = $('placeOrderBtn');
-    ui.error = $('orderError');
-    ui.success = $('orderSuccess');
-    ui.statusLine = $('orderStatusLine');
   }
 
   function esc(value) {
@@ -76,28 +59,34 @@
     ui.menuNotice.textContent = '';
   }
 
-  // A dish that becomes unavailable is removed from the saved cart and
+  // A dish that becomes unavailable is removed from the shared cart and
   // the customer is told exactly which line disappeared.
   function reconcileCart() {
     var removed = [];
     var seen = {};
+    var priceChanged = false;
 
-    cart = cart.filter(function (line) {
+    eqCart.lines().forEach(function (line) {
       var item = menuItemByName(line.name);
-      if (!item || !item.available) {
-        if (!seen[line.name]) {
-          seen[line.name] = true;
-          removed.push(line.name);
-        }
-        return false;
+      if (item && item.available && line.price !== item.price) {
+        line.price = item.price;
+        priceChanged = true;
       }
-      line.price = item.price;
-      return true;
     });
 
+    eqCart.prune(function (line) {
+      var item = menuItemByName(line.name);
+      if (item && item.available) return true;
+      if (!seen[line.name]) {
+        seen[line.name] = true;
+        removed.push(line.name);
+      }
+      return false;
+    });
+
+    if (priceChanged) eqCart.save();
+
     if (removed.length) {
-      saveCart();
-      renderCart();
       showMenuNotice(
         'Removed from your order because ' + (removed.length === 1 ? 'it is' : 'they are') +
         ' no longer available: ' + removed.join(', ') + '.'
@@ -114,106 +103,18 @@
     '</div>';
   }
 
-  // ── Cart state ──
-
-  function cartLines() {
-    return cart.filter(function (line) {
-      return line.qty > 0;
-    });
-  }
-
-  function cartCount() {
-    return cartLines().reduce(function (sum, line) {
-      return sum + line.qty;
-    }, 0);
-  }
-
-  function cartTotal() {
-    return cartLines().reduce(function (sum, line) {
-      return sum + line.qty * line.price;
-    }, 0);
-  }
-
-  function lineFor(name) {
-    for (var i = 0; i < cart.length; i++) {
-      if (cart[i].name === name) return cart[i];
-    }
-    return null;
-  }
-
-  // The cart lives in localStorage so it survives the login box, a
-  // page refresh, or a visit to another page.
-  function loadCart() {
-    var saved;
-
-    try {
-      saved = JSON.parse(window.localStorage.getItem(CART_KEY) || '[]');
-    } catch (err) {
-      return [];
-    }
-
-    if (!Array.isArray(saved)) return [];
-
-    var restored = [];
-    saved.forEach(function (entry) {
-      if (!entry || typeof entry.name !== 'string') return;
-
-      var qty = Math.floor(Number(entry.qty));
-      if (!isFinite(qty) || qty < 1) return;
-
-      var price = Number(entry.price);
-      restored.push({
-        name: entry.name,
-        price: isFinite(price) ? price : 0,
-        qty: Math.min(qty, 99)
-      });
-    });
-
-    return restored;
-  }
-
-  function saveCart() {
-    try {
-      window.localStorage.setItem(CART_KEY, JSON.stringify(cartLines()));
-    } catch (err) {
-      /* Private browsing can block storage — the in-memory cart still works. */
-    }
-  }
-
-  function clearCart() {
-    cart = [];
-    try {
-      window.localStorage.removeItem(CART_KEY);
-    } catch (err) {
-      /* ignore */
-    }
-  }
-
-  function changeQty(name, delta) {
+  // Unavailable dishes can never enter the cart, from here or anywhere else.
+  function changeQty(name, delta, sourceEl) {
     var item = menuItemByName(name);
     if (!item || !item.available) {
       showMenuNotice('This dish is currently unavailable.');
       return;
     }
 
-    var line = lineFor(name);
-    if (!line) {
-      if (delta > 0) {
-        cart.push({ name: item.name, price: item.price, qty: delta });
-      }
-    } else {
-      line.qty += delta;
-      if (line.qty <= 0) {
-        cart = cart.filter(function (l) {
-          return l.name !== name;
-        });
-      }
+    eqCart.change(item.name, item.price, delta);
+    if (delta > 0 && window.eqCartFeedback) {
+      window.eqCartFeedback(item.name, sourceEl);
     }
-
-    saveCart();
-    hideMessages();
-    renderCart();
-    renderMenuQuantities();
   }
 
   // ── Rendering ──
@@ -242,6 +143,16 @@
       '</article>';
   }
 
+  // Phones start with only the first category open; wider screens
+  // start fully open. State survives the 30s menu re-render.
+  function categoryOpen(cat, index) {
+    if (!(cat in catOpenState)) {
+      var phone = window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
+      catOpenState[cat] = !phone || index === 0;
+    }
+    return catOpenState[cat];
+  }
+
   function renderMenu() {
     if (!ui.menu) return;
 
@@ -252,29 +163,60 @@
 
     var groups = window.eqMenu ? window.eqMenu.group(menuItems) : [];
 
-    ui.menu.innerHTML = groups.map(function (category) {
+    ui.menu.innerHTML = groups.map(function (category, index) {
+      var open = categoryOpen(category.category, index);
+      var cat = esc(category.category);
+      var count = category.items.length;
+
       return '' +
-        '<div class="menu-category">' +
-          '<h3 class="menu-category-title">' + esc(category.category) + '</h3>' +
-          '<div class="menu-cards">' +
+        '<div class="menu-category' + (open ? '' : ' cat-closed') + '">' +
+          '<h3 class="menu-category-title menu-cat-head">' +
+            '<button type="button" class="menu-cat-toggle" data-cat-toggle="' + cat + '" aria-expanded="' + (open ? 'true' : 'false') + '">' +
+              '<span class="menu-cat-arrow" aria-hidden="true"></span>' +
+              '<span class="menu-cat-name">' + cat + '</span>' +
+              '<span class="menu-cat-count">' + count + ' ' + (count === 1 ? 'dish' : 'dishes') + '</span>' +
+              '<span class="menu-cat-cart" data-cat-cart="' + cat + '" hidden>0</span>' +
+            '</button>' +
+          '</h3>' +
+          '<div class="menu-cards menu-cat-body">' +
             category.items.map(renderMenuCard).join('') +
           '</div>' +
         '</div>';
     }).join('');
+
+    updateCategoryBadges();
+  }
+
+  function updateCategoryBadges() {
+    if (!ui.menu) return;
+
+    var totals = {};
+    eqCart.lines().forEach(function (line) {
+      var item = menuByName[line.name];
+      if (item) {
+        var cat = String(item.category || 'Menu');
+        totals[cat] = (totals[cat] || 0) + line.qty;
+      }
+    });
+
+    ui.menu.querySelectorAll('[data-cat-cart]').forEach(function (node) {
+      var n = totals[node.getAttribute('data-cat-cart')] || 0;
+      node.textContent = String(n);
+      node.hidden = n === 0;
+    });
   }
 
   function renderMenuQuantities() {
     if (!ui.menu) return;
 
     ui.menu.querySelectorAll('.qty-value').forEach(function (node) {
-      var line = lineFor(node.getAttribute('data-item-name'));
+      var line = eqCart.lineFor(node.getAttribute('data-item-name'));
       node.textContent = line ? String(line.qty) : '0';
     });
 
     ui.menu.querySelectorAll('[data-action="minus"]').forEach(function (btn) {
-      var item = menuItemByName(btn.getAttribute('data-item-name'));
-      var line = lineFor(btn.getAttribute('data-item-name'));
-      btn.disabled = !item || !item.available || !line || line.qty <= 0;
+      var line = eqCart.lineFor(btn.getAttribute('data-item-name'));
+      btn.disabled = !line || line.qty <= 0;
     });
 
     ui.menu.querySelectorAll('[data-action="plus"]').forEach(function (btn) {
@@ -288,7 +230,6 @@
     reconcileCart();
     renderMenu();
     renderMenuQuantities();
-    renderCart();
   }
 
   function handleMenuData(items, error) {
@@ -310,398 +251,20 @@
     });
   }
 
-  function renderCart() {
-    var lines = cartLines();
-
-    if (ui.summary) {
-      if (!lines.length) {
-        ui.summary.innerHTML = '<p class="order-empty">Your order is empty — add dishes from the menu above.</p>';
-      } else {
-        ui.summary.innerHTML = lines.map(function (line) {
-          return '' +
-            '<div class="order-line">' +
-              '<span class="order-line-name">' + esc(line.name) +
-                ' <span class="order-line-qty">&times;' + line.qty + '</span>' +
-              '</span>' +
-              '<span class="order-line-price">' + fmtPrice(line.price * line.qty) + '</span>' +
-            '</div>';
-        }).join('');
-      }
-    }
-
-    if (ui.total) ui.total.textContent = fmtPrice(cartTotal());
-    if (ui.count) ui.count.textContent = String(cartCount());
-  }
-
-  // ── Messages ──
-
-  function hideMessages() {
-    if (ui.error) {
-      ui.error.hidden = true;
-      ui.error.textContent = '';
-    }
-    if (ui.success) ui.success.hidden = true;
-  }
-
-  function showError(message, field) {
-    if (ui.success) ui.success.hidden = true;
-    if (ui.error) {
-      ui.error.textContent = message;
-      ui.error.hidden = false;
-    }
-    if (field && typeof field.focus === 'function') field.focus();
-  }
-
-  function showSuccess() {
-    if (ui.error) {
-      ui.error.hidden = true;
-      ui.error.textContent = '';
-    }
-    if (!ui.success) return;
-
-    ui.success.hidden = false;
-    if (typeof ui.success.focus === 'function') ui.success.focus();
-  }
-
-  // ── Live order status ──
-
-  function isPaid(order) {
-    return !!(order && order.paid_at);
-  }
-
-  function orderStatusText(order) {
-    var status = String((order && order.status) || '');
-
-    if (status === 'CANCELLED') return 'This order was cancelled.';
-    if (status === 'REJECTED') return 'Your order was rejected. Please call us if you need help.';
-    if (status === 'OUT_FOR_DELIVERY') return 'Your order is on the way!';
-    if (status === 'DELIVERED') return 'Delivered';
-    if (status === 'APPROVED' || status === 'PREPARING') return 'Your order is approved';
-    if (isPaid(order) || status === 'PAID') return 'Payment received';
-    return 'Order received, waiting for payment';
-  }
-
-  function updateStatusLine(order) {
-    if (!ui.statusLine) return;
-    var text = orderStatusText(order);
-    if (ui.statusLine.textContent !== text) ui.statusLine.textContent = text;
-  }
-
-  var orderChannel = null;
-
-  function stopOrderWatch() {
-    if (orderChannel && client) {
-      try {
-        client.removeChannel(orderChannel);
-      } catch (err) {
-        /* ignore */
-      }
-    }
-    orderChannel = null;
-  }
-
-  function watchOrder(id) {
-    stopOrderWatch();
-    if (!id || !client) return;
-
-    orderChannel = client
-      .channel('order-live-' + id)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'orders',
-        filter: 'id=eq.' + id
-      }, function (payload) {
-        if (payload && payload.new) updateStatusLine(payload.new);
-      })
-      .subscribe();
-  }
-
-  function setSubmitting(isSubmitting) {
-    if (!ui.submit) return;
-    ui.submit.disabled = isSubmitting;
-    ui.submit.textContent = isSubmitting ? 'Placing order…' : 'Place Order';
-    ui.submit.setAttribute('aria-busy', isSubmitting ? 'true' : 'false');
-  }
-
-  // ── Validation ──
-
-  function readForm() {
-    return {
-      name: ui.name.value.trim(),
-      phone: ui.phone.value.trim(),
-      email: ui.email.value.trim(),
-      address: ui.address.value.trim(),
-      items: cartLines().map(function (line) {
-        return { name: line.name, qty: line.qty, price: line.price };
-      })
-    };
-  }
-
-  function looksLikeEmail(value) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-  }
-
-  function validate(values) {
-    if (!values.name) {
-      return { message: 'Please enter your name.', field: ui.name };
-    }
-    if (!values.phone) {
-      return { message: 'Please enter your phone number.', field: ui.phone };
-    }
-    if (values.phone.replace(/\D/g, '').length < 7) {
-      return { message: 'Please enter a valid phone number.', field: ui.phone };
-    }
-    if (!values.items.length) {
-      return { message: 'Please add at least one item to your order.' };
-    }
-    if (!values.address) {
-      return { message: 'Please enter your delivery address.', field: ui.address };
-    }
-    if (values.email && !looksLikeEmail(values.email)) {
-      return { message: 'Please enter a valid email address, or leave the email field blank.', field: ui.email };
-    }
-    return null;
-  }
-
-  // ── Account prefill ──
-
-  async function prefillFromProfile(onlyEmpty) {
-    if (typeof authUI === 'undefined' || !authUI) return;
-
-    var saved;
-
-    try {
-      saved = await authUI.getProfile();
-    } catch (err) {
-      return;
-    }
-
-    if (!saved) return;
-
-    function fill(input, value) {
-      if (!input || !value) return;
-      if (onlyEmpty && input.value.trim()) return;
-      input.value = value;
-    }
-
-    fill(ui.name, saved.full_name);
-    fill(ui.phone, saved.phone);
-    fill(ui.email, saved.email);
-    fill(ui.address, saved.address);
-  }
-
-  // ── Submit ──
-
-  async function continueOrder() {
-    await prefillFromProfile(true);
-    await sendOrder();
-  }
-
-  // The session the insert will be sent with. Read straight from the client
-  // so a session restored from storage, refreshed, or just created by the
-  // login box is the one used. authUI.currentSession also syncs the header.
-  async function activeSession() {
-    if (typeof authUI !== 'undefined' && authUI && typeof authUI.currentSession === 'function') {
-      return await authUI.currentSession();
-    }
-
-    try {
-      var res = await client.auth.getSession();
-      var live = res && res.data ? res.data.session : null;
-      return live && live.user ? live : null;
-    } catch (err) {
-      return null;
-    }
-  }
-
-  // A rejected JWT is only ever diagnosed from the database response, never
-  // from an auth event or a pre-flight check.
-  function isSessionError(error) {
-    return typeof authUI !== 'undefined' && authUI && typeof authUI.isSessionError === 'function'
-      ? authUI.isSessionError(error)
-      : false;
-  }
-
-  function isUnavailableError(error) {
-    var message = (error && (error.message || error.details || error.hint)) || '';
-    return /one or more dishes are unavailable/i.test(message);
-  }
-
-  async function insertOrder(payload) {
-    try {
-      var result = await client.from('orders').insert(payload);
-      return result.error || null;
-    } catch (err) {
-      return err;
-    }
-  }
-
-  async function sendOrder() {
-    hideMessages();
-
-    var values = readForm();
-    var problem = validate(values);
-    if (problem) {
-      showError(problem.message, problem.field);
-      return;
-    }
-
-    if (!menuItems.length) {
-      showError('The menu is still loading. Please wait a moment and try again.');
-      return;
-    }
-
-    var unavailable = cartLines().filter(function (line) {
-      var item = menuItemByName(line.name);
-      return !item || !item.available;
-    });
-
-    if (unavailable.length) {
-      reconcileCart();
-      showError('One or more dishes are unavailable. Please review your order and try again.');
-      return;
-    }
-
-    if (!client) {
-      showError('Sorry, our ordering system is unavailable right now. Please call or WhatsApp us to place your order.');
-      return;
-    }
-
-    // The database runs this insert as whoever the session belongs to. With no
-    // session PostgREST runs it as `anon`, which the grants refuse, so never
-    // send it: ask for a login instead. The cart and typed details stay put.
-    var live = await activeSession();
-
-    if (!live) {
-      if (typeof authUI !== 'undefined' && authUI && typeof authUI.openLogin === 'function') {
-        authUI.openLogin({
-          tab: 'login',
-          reason: 'Please log in to place your order. Your cart and details are saved.',
-          onSuccess: continueOrder
-        });
-      } else {
-        showError('Please log in to place your order. Reload the page if the login box does not open.');
-      }
-      return;
-    }
-
-    setSubmitting(true);
-
-    // Generated in the browser and stored with the order, exactly as the
-    // tracking page expects: code + phone number, no login needed.
-    var trackingCode = typeof generateTrackingCode === 'function'
-      ? generateTrackingCode()
-      : '';
-
-    // `user_id` and `status` are intentionally omitted: the database fills
-    // the owner from the session and defaults the status to PENDING_APPROVAL.
-    var payload = {
-      customer_name: values.name,
-      phone: values.phone,
-      email: values.email || null,
-      address: values.address,
-      items: values.items,
-      total: cartTotal(),
-      tracking_code: trackingCode || null
-    };
-
-    var error = await insertOrder(payload);
-
-    // The database rejected the session (401 / JWT expired). Refresh once and
-    // resend the same order; the customer is not asked to log in again.
-    if (error && isSessionError(error)) {
-      var recovered = typeof authUI !== 'undefined' && authUI && authUI.recoverSession
-        ? await authUI.recoverSession()
-        : false;
-
-      if (recovered) error = await insertOrder(payload);
-    }
-
-    if (error) {
-      console.error('Order insert failed:', error);
-      setSubmitting(false);
-
-      if (isUnavailableError(error)) {
-        showError('One or more dishes are unavailable. Please review your order and try again.');
-        refreshMenuAfterUnavailable();
-        return;
-      }
-
-      // Only here — after a real 401 and a failed refresh — ask for a login.
-      if (isSessionError(error) && typeof authUI !== 'undefined' && authUI && authUI.promptSessionExpired) {
-        authUI.promptSessionExpired(continueOrder);
-        return;
-      }
-
-      // Keep everything the customer typed so they can simply retry.
-      showError("Sorry, we couldn't save your order just now. Your details are still here — please try again, or call or WhatsApp us.");
-      return;
-    }
-
-    // The order is saved: fill in any profile fields that are still
-    // missing, using what the customer just typed.
-    if (typeof authUI !== 'undefined' && authUI && typeof authUI.rememberCheckoutDetails === 'function') {
-      authUI.rememberCheckoutDetails(values.name, values.phone);
-    }
-
-    // Read the row back so the status line can follow this one order.
-    stopOrderWatch();
-    var placed = null;
-    if (trackingCode) {
-      try {
-        var found = await client
-          .from('orders')
-          .select('id, status, paid_at')
-          .eq('tracking_code', trackingCode)
-          .maybeSingle();
-        if (!found.error && found.data) placed = found.data;
-      } catch (err) {
-        placed = null;
-      }
-    }
-
-    setSubmitting(false);
-
-    // Success: clear the cart and the form, then show the code + live status.
-    ui.form.reset();
-    clearCart();
-    renderCart();
-    renderMenuQuantities();
-    updateStatusLine(placed || { status: 'PENDING_APPROVAL', paid_at: null });
-    showSuccess();
-    if (placed && placed.id) watchOrder(placed.id);
-  }
-
-  async function placeOrder(event) {
-    event.preventDefault();
-    hideMessages();
-
-    if (!cartLines().length) {
-      showError('Please add at least one item to your order.');
-      return;
-    }
-
-    if (!client) {
-      showError('Sorry, our ordering system is unavailable right now. Please call or WhatsApp us to place your order.');
-      return;
-    }
-
-    // sendOrder checks the session immediately before the insert and opens
-    // the login box if there is none. Nothing is shown on page load.
-    sendOrder();
-  }
-
   // ── Init ──
 
   function init() {
     cacheElements();
-    if (!ui.menu || !ui.form) return;
+    if (!ui.menu || !window.eqCart) return;
 
-    cart = loadCart();
+    ui.menu.innerHTML = '<p class="menu-loading">Loading menu…</p>';
 
-    if (ui.menu) ui.menu.innerHTML = '<p class="menu-loading">Loading menu…</p>';
-    renderCart();
+    // The cart panel or the menu page can change the cart at any time —
+    // keep this page's steppers and category badges in sync.
+    eqCart.onChange(function () {
+      renderMenuQuantities();
+      updateCategoryBadges();
+    });
 
     if (window.eqMenu) {
       window.eqMenu.watch(handleMenuData);
@@ -710,23 +273,29 @@
     }
 
     ui.menu.addEventListener('click', function (event) {
+      var toggle = event.target.closest ? event.target.closest('[data-cat-toggle]') : null;
+      if (toggle) {
+        var cat = toggle.getAttribute('data-cat-toggle');
+        var isOpen = catOpenState[cat] !== false;
+        catOpenState[cat] = !isOpen;
+        var section = toggle.closest('.menu-category');
+        if (section) section.classList.toggle('cat-closed', isOpen);
+        toggle.setAttribute('aria-expanded', String(!isOpen));
+        return;
+      }
+
       var btn = event.target.closest ? event.target.closest('.qty-btn') : null;
       if (!btn) return;
       changeQty(
         btn.getAttribute('data-item-name'),
-        btn.getAttribute('data-action') === 'plus' ? 1 : -1
+        btn.getAttribute('data-action') === 'plus' ? 1 : -1,
+        btn
       );
     });
 
-    ui.form.addEventListener('submit', placeOrder);
-    ui.form.addEventListener('input', hideMessages);
-
-    // Returning customers get their details ready without any prompt.
-    if (typeof authUI !== 'undefined' && authUI) {
-      authUI.ready.then(function () {
-        if (authUI.isLoggedIn()) prefillFromProfile(true);
-      });
-    }
+    // The cart panel hit the database's availability check — re-read the
+    // menu so the cart gets pruned and the customer sees which line went.
+    document.addEventListener('eq:unavailable', refreshMenuAfterUnavailable);
   }
 
   if (document.readyState === 'loading') {
