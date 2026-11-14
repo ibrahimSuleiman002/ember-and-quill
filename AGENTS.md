@@ -60,6 +60,13 @@ Run the whole suite before calling a task done.
 
     npm install && npx playwright install chromium && npm test
 
+`admin-call.spec.js` covers the admin dashboard and stubs all of it, sign-in
+included, so the dashboard tests also never reach the live project. Note the
+shape when adding more admin specs: supabase-js posts functions to
+`/rest/v1/rpc/<function name>` (the name is in the path, not the body), and
+the dashboard's Realtime socket cannot be routed by Playwright — that spec
+points it at a dead port instead.
+
 `live-order.spec.js` (real account + order) only runs when `E2E_PLACE_ORDER=1`
 is set — in PowerShell: `$env:E2E_PLACE_ORDER="1"`. It also needs
 `AUTO_ACCOUNT = true`.

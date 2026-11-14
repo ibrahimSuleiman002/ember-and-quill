@@ -102,7 +102,8 @@ const ACTIVITY_LABELS = {
   RESERVATION_MARKED_PAID: "Marked as paid",
   RESERVATION_CANCELLED: "Reservation cancelled",
   RESERVATION_CANCELLED_BY_CUSTOMER: "Cancelled by customer",
-  MENU_ITEM_AVAILABILITY_CHANGED: "Menu availability changed"
+  MENU_ITEM_AVAILABILITY_CHANGED: "Menu availability changed",
+  CUSTOMER_CALLED: "Called customer"
 };
 
 const UNUSUAL_TOTAL = 100000;
@@ -363,6 +364,200 @@ function phoneIntl(p) {
 
 function waNumber(p) {
   return "234" + normalizePhone(p);
+}
+
+// The one cleaner behind every phone control in the dashboard. Staff and
+// customers type numbers however they like, so spaces, dashes, dots and
+// brackets go first: "0803 123 4567", "(0803) 123-4567" and "2348031234567"
+// all dial as tel:+2348031234567, and a number that already starts with + is
+// kept as it is. Anything missing or too short to dial returns null, so the
+// caller can show "No phone number" instead of a link that does nothing.
+function dialNumber(value) {
+  const cleaned = String(value || "").replace(/[\s\-().]/g, "");
+  if (!cleaned) return null;
+
+  const digits = cleaned.replace(/\D/g, "");
+  if (digits.length < 10) return null;
+
+  if (cleaned.charAt(0) === "+") return "+" + digits;
+  if (digits.charAt(0) === "0") return "+234" + digits.slice(1);
+  if (digits.slice(0, 3) === "234") return "+" + digits;
+  if (digits.length === 10) return "+234" + digits;
+  return null;
+}
+
+// Website order rows keep the number in "phone"; the Iris RPC calls it
+// "customer_phone".
+function orderPhoneOf(o) {
+  return String((isIrisOrder(o) ? o.customer_phone : o.phone) || "");
+}
+
+function orderNameOf(o) {
+  return String(o.customer_name || "");
+}
+
+const PHONE_ICON_SVG =
+  '<svg class="admin-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"' +
+  ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 15.6 15.6 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 15.6 15.6 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>' +
+  '</svg>';
+
+const COPY_ICON_SVG =
+  '<svg class="admin-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"' +
+  ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<rect x="9" y="9" width="12" height="12" rx="2"/>' +
+  '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>' +
+  '</svg>';
+
+// Dial + copy for one customer, drawn the same way on the order page, an
+// orders row and the customers list. `options.compact` is the in-row version:
+// icon-only buttons, because a table row has no room for the words.
+// `target` says what the call was about, for the activity log entry.
+function callControlsHtml(phone, name, target, options) {
+  const opts = options || {};
+  const dial = dialNumber(phone);
+
+  if (!dial) return '<span class="admin-no-phone">No phone number</span>';
+
+  const who = String(name || "").trim();
+  const label = "Call customer" + (who ? " " + who : "");
+  const callAttrs =
+    ' data-call-name="' + esc(who) + '"' +
+    (target && target.type ? ' data-call-type="' + esc(target.type) + '"' : "") +
+    (target && target.id != null ? ' data-call-id="' + esc(target.id) + '"' : "") +
+    (target && target.label ? ' data-call-label="' + esc(target.label) + '"' : "");
+  const copyAttrs =
+    ' data-copy-number="' + esc(dial) + '"' +
+    ' data-copy-text="' + esc(opts.compact ? "Copy" : "Copy number") + '"';
+
+  if (opts.compact) {
+    return '<span class="admin-contact admin-contact--compact">' +
+      '<a class="admin-call-icon" href="tel:' + esc(dial) + '"' + callAttrs +
+        ' aria-label="' + esc(label) + '" title="' + esc(label) + '">' + PHONE_ICON_SVG +
+        '<span class="admin-call-text">Call</span></a>' +
+      '<span class="admin-phone-number">' + esc(phone) + "</span>" +
+      '<button type="button" class="admin-copy-icon"' + copyAttrs +
+        ' aria-label="Copy number ' + esc(phone) + '" title="Copy number">' + COPY_ICON_SVG +
+        '<span class="admin-copy-text">Copy</span></button>' +
+    "</span>";
+  }
+
+  return '<span class="admin-contact">' +
+    '<a class="btn-admin-outline admin-call-btn" href="tel:' + esc(dial) + '"' + callAttrs + ">" +
+      PHONE_ICON_SVG + '<span class="admin-call-text">Call customer</span></a>' +
+    '<span class="admin-phone-number">' + esc(phone) + "</span>" +
+    '<button type="button" class="btn-admin-outline admin-copy-btn"' + copyAttrs + ">" +
+      COPY_ICON_SVG + '<span class="admin-copy-text">Copy number</span></button>' +
+  "</span>";
+}
+
+// The WhatsApp button that was already here, now always beside Call.
+function whatsappControlHtml(phone) {
+  const dial = dialNumber(phone);
+  if (!dial) return "";
+  return '<a class="btn-admin-outline admin-wa-btn" href="https://wa.me/' + esc(waNumber(phone)) + '"' +
+    ' target="_blank" rel="noopener">WhatsApp</a>';
+}
+
+/* ── Call + copy wiring ── */
+
+const COPIED_TEXT_MS = 1800;
+
+function markCopied(btn) {
+  const text = btn.querySelector(".admin-copy-text");
+  if (!text) return;
+
+  const original = btn.getAttribute("data-copy-text") || "Copied";
+  clearTimeout(btn._copyTimer);
+  text.textContent = "Copied";
+  btn.classList.add("is-copied");
+  btn._copyTimer = setTimeout(function () {
+    text.textContent = original;
+    btn.classList.remove("is-copied");
+  }, COPIED_TEXT_MS);
+}
+
+// No number on screen is ever a dead end: if the clipboard is blocked (a
+// browser that refuses it, or a plain http connection) the old execCommand
+// path still works, and failing both the number stays visible to select.
+function legacyCopy(value) {
+  try {
+    const area = document.createElement("textarea");
+    area.value = value;
+    area.setAttribute("readonly", "");
+    area.style.position = "fixed";
+    area.style.top = "-100px";
+    area.style.opacity = "0";
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand("copy");
+    area.remove();
+    return ok;
+  } catch (err) {
+    return false;
+  }
+}
+
+async function copyPhoneNumber(btn) {
+  const value = btn.getAttribute("data-copy-number") || "";
+  if (!value) return;
+
+  let copied = false;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(value);
+      copied = true;
+    }
+  } catch (err) {
+    copied = false;
+  }
+  if (!copied) copied = legacyCopy(value);
+
+  if (copied) {
+    markCopied(btn);
+    toast("Number copied: " + value);
+  } else {
+    toast("Could not copy the number — it is on the screen, so you can select it.");
+  }
+}
+
+// One row in the same log the approve/reject buttons already write to; the
+// action column reads "Called customer", the note carries who and what it was
+// about, and actor_email + created_at are stored by the log itself.
+async function logCustomerCall(link) {
+  const name = link.getAttribute("data-call-name") || "";
+  const type = link.getAttribute("data-call-type") || "customer";
+  const id = link.getAttribute("data-call-id") || "";
+  const about = link.getAttribute("data-call-label") || "";
+
+  let note = name;
+  if (about) note += (note ? " " : "") + "about order " + about;
+
+  const res = await logActivity("CUSTOMER_CALLED", type, id, note);
+  if (res && res.error) {
+    toast("The call was made, but it could not be added to the activity log.");
+  }
+}
+
+function bindCallControls() {
+  // These controls are re-rendered constantly, so one delegated listener on
+  // the document covers every place they appear.
+  document.addEventListener("click", function (event) {
+    const node = event.target;
+    if (!node || !node.closest) return;
+
+    const copy = node.closest("[data-copy-number]");
+    if (copy) {
+      event.preventDefault();
+      copyPhoneNumber(copy);
+      return;
+    }
+
+    // The tel: link is left alone so the dialler still opens; recording the
+    // call happens alongside it.
+    const call = node.closest("[data-call-name]");
+    if (call) logCustomerCall(call);
+  });
 }
 
 function formatTime(value) {
@@ -1654,7 +1849,7 @@ function renderOrders() {
     '<div class="admin-table-wrap">' +
       '<table class="admin-table admin-table--orders">' +
         "<thead><tr>" +
-          "<th>Date</th><th>Order ID</th><th>Items</th><th>Amount</th><th>Status</th><th>Payment</th><th></th>" +
+          "<th>Date</th><th>Order ID</th><th>Items</th><th>Amount</th><th>Status</th><th>Payment</th><th>Contact</th><th></th>" +
         "</tr></thead>" +
         "<tbody>" +
           orders.map(function (o) {
@@ -1670,6 +1865,10 @@ function renderOrders() {
               '<td class=\'admin-table-amount\' data-label="Amount">' + esc(amountTextOf(o)) + "</td>" +
               '<td data-label="Status"><span class="status ' + statusClass(o) + '">' + esc(orderStatusText(o)) + "</span></td>" +
               '<td data-label="Payment">' + esc(paymentCellText(o)) + "</td>" +
+              '<td class=\'admin-table-contact\' data-label="Contact">' +
+                callControlsHtml(orderPhoneOf(o), orderNameOf(o),
+                  { type: "order", id: o.id, label: orderLabel(o) }, { compact: true }) +
+              "</td>" +
               '<td data-label=""><a class=\'btn-admin-outline admin-view-btn\' href=\'#order/' + esc(orderKey(o)) + "'>View</a></td>" +
             "</tr>";
           }).join("") +
@@ -1762,7 +1961,7 @@ function renderCustomers() {
             return "<tr>" +
               '<td data-label="Name">' + esc(g.name || "Unknown customer") + "</td>" +
               '<td data-label="Email">' + esc(g.email || "—") + "</td>" +
-              '<td data-label="Phone">' + esc(g.phone || "—") + "</td>" +
+              '<td class=\'admin-table-contact\' data-label="Phone">' + callControlsHtml(g.phone, g.name, { type: "customer", id: g.key }, { compact: true }) + "</td>" +
               '<td data-label="Orders">' + g.orders + "</td>" +
               '<td class=\'admin-table-amount\' data-label="Total spent">' + money(g.spent) + "</td>" +
               '<td data-label="Customer since">' + (g.since ? esc(formatDate(new Date(g.since).toISOString())) : "—") + "</td>" +
@@ -2190,12 +2389,10 @@ function renderIrisOrderDetail(o) {
       "<h3>Managed by Iris</h3>" +
       "<p>Managed by Iris. Approve and payment actions connect later.</p>" +
     "</section>" +
-    (phone
-      ? '<div class="actions">' +
-          '<a class="btn-admin-outline" href="tel:' + esc(phoneIntl(phone)) + '">Call ' + esc(phone) + "</a>" +
-          '<a class="btn-admin-outline" href="https://wa.me/' + esc(waNumber(phone)) + '" target="_blank" rel="noopener">WhatsApp</a>' +
-        "</div>"
-      : "");
+    '<div class="actions admin-contact-row">' +
+      callControlsHtml(phone, o.customer_name, { type: "order", id: o.id, label: orderLabel(o) }) +
+      whatsappControlHtml(phone) +
+    "</div>";
 }
 
 function renderOrderDetail(order) {
@@ -2273,12 +2470,11 @@ function renderOrderDetail(order) {
     ? '<div class="actions">' + actionButtons.join("") + "</div>"
     : "";
 
-  const contactHtml = phone
-    ? '<div class="actions">' +
-        '<a class="btn-admin-outline" href="tel:' + esc(phoneIntl(phone)) + '">Call ' + esc(phone) + "</a>" +
-        '<a class="btn-admin-outline" href="https://wa.me/' + esc(waNumber(phone)) + '" target="_blank" rel="noopener">WhatsApp</a>' +
-      "</div>"
-    : "";
+  const contactHtml =
+    '<div class="actions admin-contact-row">' +
+      callControlsHtml(phone, o.customer_name, { type: "order", id: o.id, label: orderLabel(o) }) +
+      whatsappControlHtml(phone) +
+    "</div>";
 
   const history = statusHistory(o);
   const historyHtml = history.length
@@ -3222,6 +3418,8 @@ function init() {
   el.modal.addEventListener("click", function (e) {
     if (e.target === el.modal) closeModal();
   });
+
+  bindCallControls();
 
   renderFilters();
   renderReservationFilters();

@@ -159,9 +159,9 @@
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 1rem;
 
-  /* The list is the container the table layout switches on: a table needs
-     about 700px of real space, and how much space there is depends on the
-     window width minus the sidebar, not on the device. */
+  /* The list is the container the table layout switches on: the orders table
+     needs about 1030px of real space, and how much space there is depends on
+     the window width minus the sidebar, not on the device. */
   container-type: inline-size;
   container-name: admin-list;
 }
@@ -462,6 +462,116 @@
   background: transparent;
   color: var(--sage);
   border: 1px solid var(--sage);
+}
+
+/* -- Call customer --
+   The same controls are used on the order pages (words) and inside table rows
+   (icons). The number is always plain text so staff can read it or dial it by
+   hand on a machine that has no dialler. */
+.admin-contact {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Call and WhatsApp belong to one decision, so they sit side by side and wrap
+   onto the next line together rather than scrolling sideways. */
+.admin-contact-row {
+  align-items: center;
+}
+
+.admin-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.admin-phone-number {
+  color: var(--heading);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  /* Never break a number mid-digit: if the column runs out of room the whole
+     number moves to the next line. */
+  white-space: nowrap;
+}
+
+.admin-no-phone {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+/* Rows have no room for words, so the labels live on the icon's aria-label and
+   title instead. "Copied" is the one exception: it is the confirmation, so the
+   tick replaces the icon for a moment. */
+.admin-call-icon,
+.admin-copy-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--sage);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--sage);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.admin-copy-icon {
+  opacity: 0.75;
+}
+
+.admin-call-icon:hover,
+.admin-copy-icon:hover {
+  opacity: 1;
+}
+
+.admin-contact--compact .admin-call-text,
+.admin-contact--compact .admin-copy-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.admin-copy-icon.is-copied {
+  width: auto;
+  padding: 0 0.45rem;
+}
+
+.admin-copy-icon.is-copied .admin-icon {
+  display: none;
+}
+
+.admin-copy-icon.is-copied .admin-copy-text {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip-path: none;
+}
+
+/* A table row is tight, so its group is packed closer and the number is a
+   step smaller than the one on the order page. */
+.admin-contact--compact {
+  gap: 0.3rem;
+}
+
+.admin-contact--compact .admin-phone-number {
+  font-size: 0.8125rem;
 }
 
 .admin-input,
@@ -1772,11 +1882,11 @@ body.admin-nav-open .admin-sidebar-backdrop { opacity: 1; }
   border-bottom: 0;
 }
 
-/* Orders: Date / Order ID / Items / Amount / Status / Payment / View.
+/* Orders: Date / Order ID / Items / Amount / Status / Payment / Contact / View.
    Only Items is fluid. Every other column is set to the width its widest
    realistic value needs on one line (measured, not guessed), so nothing gets
-   cut off; the table renders only when the list has room for those six plus a
-   usable Items column — below 840px the rows switch to the stacked layout
+   cut off; the table renders only when the list has room for those seven plus
+   a usable Items column — below 1000px the rows switch to the stacked layout
    (see the admin-list container query at the end). */
 .admin-table--orders th:nth-child(1),
 .admin-table--orders td:nth-child(1) { width: 136px; }
@@ -1789,7 +1899,9 @@ body.admin-nav-open .admin-sidebar-backdrop { opacity: 1; }
 .admin-table--orders th:nth-child(6),
 .admin-table--orders td:nth-child(6) { width: 112px; }
 .admin-table--orders th:nth-child(7),
-.admin-table--orders td:nth-child(7) { width: 84px; }
+.admin-table--orders td:nth-child(7) { width: 190px; }
+.admin-table--orders th:nth-child(8),
+.admin-table--orders td:nth-child(8) { width: 84px; }
 
 .admin-table--orders td:nth-child(1),
 .admin-table--orders td:nth-child(2),
@@ -1815,8 +1927,11 @@ body.admin-nav-open .admin-sidebar-backdrop { opacity: 1; }
 }
 
 /* Customers: Name / Email / Phone / Orders / Total spent / Since / Actions.
-   Name, email and phone share whatever is left and wrap instead of
-   overflowing; the numeric columns keep their own space. */
+   Phone is the call control, so it gets the same width the orders list gives
+   it; Name and email share whatever is left and wrap instead of overflowing;
+   the numeric columns keep their own space. */
+.admin-table--customers th:nth-child(3),
+.admin-table--customers td:nth-child(3) { width: 190px; }
 .admin-table--customers th:nth-child(4),
 .admin-table--customers td:nth-child(4) { width: 64px; }
 .admin-table--customers th:nth-child(5),
@@ -1996,13 +2111,14 @@ body.admin-nav-open .admin-sidebar-backdrop { opacity: 1; }
   }
 }
 
-/* Narrow list (phone, or a small desktop window with the sidebar open):
+/* Narrow list (phone, or a smaller desktop window with the sidebar open):
    each table row becomes a stacked card, so there is never a sideways
-   scroll. Column names come from the td data-label attributes. The seven
-   orders columns need 728px on their own, so the switch happens at 840px of
-   list width — that is a 1160px window with the sidebar open, and anything
-   narrower reads better as cards than as a squeezed table. */
-@container admin-list (max-width: 840px) {
+   scroll. Column names come from the td data-label attributes. Seven of the
+   eight orders columns need 918px between them, so once Items still has a
+   usable width the switch happens at 1030px of list width — roughly a 1320px
+   window with the sidebar open, and anything narrower reads better as cards
+   than as a squeezed table. */
+@container admin-list (max-width: 1030px) {
   .admin-table thead {
     display: none;
   }
@@ -2068,6 +2184,20 @@ body.admin-nav-open .admin-sidebar-backdrop { opacity: 1; }
     width: 100%;
     margin-top: 0.35rem;
     text-align: center;
+  }
+
+  /* As a card the contact group gets the whole line, so the number never has
+     to stack under the icons, and the icons grow to the same 44px touch
+     target every other admin button uses. */
+  .admin-table .admin-contact--compact {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .admin-table .admin-call-icon,
+  .admin-table .admin-copy-icon {
+    width: 44px;
+    height: 44px;
   }
 
   .admin-table-actions button {
