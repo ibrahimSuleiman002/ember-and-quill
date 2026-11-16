@@ -9,6 +9,17 @@
 const WHATSAPP_NUMBER = siteConfig.phoneIntl.replace(/[^0-9]/g, "");
 
 // ═══════════════════════════════════════════════════════════════
+//  Iris chat — the address of the Agent Operators' chat page
+//
+//  Paste the real https:// address between the quotes. Until then the
+//  floating button's panel says "Iris is not connected yet" rather than
+//  showing an empty frame, and the "Open in a new tab" link is hidden.
+//  Anything starting with http:// or https:// counts as connected.
+// ═══════════════════════════════════════════════════════════════
+
+const IRIS_CHAT_URL = 'PASTE_IRIS_URL_HERE';
+
+// ═══════════════════════════════════════════════════════════════
 //  Checkout setting — automatic accounts
 //
 //  AUTO_ACCOUNT = true   a logged-out customer's "Place order" opens the
@@ -279,6 +290,12 @@ function openCartPanel(open) {
   panel.setAttribute('aria-hidden', String(!open));
   const cartBtn = document.getElementById('navCart');
   if (cartBtn) cartBtn.setAttribute('aria-expanded', String(open));
+  // The drawer covers the bottom-right corner, and on a phone it covers
+  // almost the whole screen, so the Iris button and panel step aside while it
+  // is open and come back when it closes.
+  const irisFab = document.getElementById('irisFab');
+  if (irisFab) irisFab.classList.toggle('iris-fab--hidden', open);
+  if (open && isIrisChatOpen()) openIrisChat(false);
   if (open) {
     renderCartLines();
     prefillCartFromProfile();
@@ -872,6 +889,102 @@ function mountCartChrome() {
   }
 }
 
+// ── Iris chat: floating button + panel ──
+//
+// Mounted on every customer page through site.js. admin.html does not load
+// site.js, so the dashboard never gets the button.
+
+const IRIS_CHAT_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>';
+
+const IRIS_CHAT_HTML = `
+  <button type="button" class="iris-fab" id="irisFab" aria-expanded="false" aria-controls="irisChat">
+    <span class="iris-fab-icon">${IRIS_CHAT_ICON_SVG}</span>
+    <span class="iris-fab-label">Chat with Iris</span>
+  </button>
+  <section class="iris-chat" id="irisChat" role="dialog" aria-modal="false" aria-label="Chat with Iris" aria-hidden="true">
+    <header class="iris-chat-head">
+      <h2 class="iris-chat-title">Iris</h2>
+      <div class="iris-chat-actions">
+        <a class="iris-chat-open" id="irisChatOpen" target="_blank" rel="noopener" hidden>Open in a new tab</a>
+        <button type="button" class="iris-chat-close" id="irisChatClose" aria-label="Close chat">&times;</button>
+      </div>
+    </header>
+    <div class="iris-chat-body">
+      <p class="iris-chat-off" id="irisChatOff" hidden>Iris is not connected yet</p>
+      <div class="iris-chat-frame" id="irisChatFrame"></div>
+    </div>
+  </section>`;
+
+// The placeholder is not an address, so a page that still has it is treated
+// as "not connected" and the panel says so instead of loading a broken frame.
+function irisChatConfigured() {
+  return /^https?:\/\//i.test(String(IRIS_CHAT_URL).trim());
+}
+
+function isIrisChatOpen() {
+  const panel = document.getElementById('irisChat');
+  return !!(panel && panel.classList.contains('open'));
+}
+
+function openIrisChat(open) {
+  const panel = document.getElementById('irisChat');
+  const fab = document.getElementById('irisFab');
+  if (!panel || !fab) return;
+
+  if (!open) {
+    if (panel.contains(document.activeElement)) document.activeElement.blur();
+    panel.classList.remove('open');
+    panel.setAttribute('aria-hidden', 'true');
+    fab.setAttribute('aria-expanded', 'false');
+    return;
+  }
+
+  const off = document.getElementById('irisChatOff');
+  const openLink = document.getElementById('irisChatOpen');
+  const frame = document.getElementById('irisChatFrame');
+
+  if (irisChatConfigured()) {
+    const url = String(IRIS_CHAT_URL).trim();
+    off.hidden = true;
+    openLink.hidden = false;
+    openLink.href = url;
+    const iframe = frame.querySelector('iframe');
+    if (!iframe) {
+      const el = document.createElement('iframe');
+      el.className = 'iris-chat-iframe';
+      el.title = 'Chat with Iris';
+      el.src = url;
+      frame.appendChild(el);
+    }
+  } else {
+    off.hidden = false;
+    openLink.hidden = true;
+  }
+
+  panel.classList.add('open');
+  panel.setAttribute('aria-hidden', 'false');
+  fab.setAttribute('aria-expanded', 'true');
+}
+
+function mountIrisChat() {
+  if (document.getElementById('irisFab')) return;
+
+  const tpl = document.createElement('template');
+  tpl.innerHTML = IRIS_CHAT_HTML;
+  while (tpl.content.firstChild) document.body.appendChild(tpl.content.firstChild);
+
+  document.getElementById('irisFab').addEventListener('click', () => {
+    openIrisChat(!isIrisChatOpen());
+  });
+  document.getElementById('irisChatClose').addEventListener('click', () => openIrisChat(false));
+
+  // The panel is not modal, so a plain Escape handler is enough to get out of
+  // it with the keyboard.
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && isIrisChatOpen()) openIrisChat(false);
+  });
+}
+
 // The cart glyph, defined once: renderNav() below is the only header markup,
 // and every page renders its nav through it.
 const CART_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>';
@@ -1051,6 +1164,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const page = document.body.dataset.page || '';
   initChrome(page);
   renderCallButtons();
+  mountIrisChat();
 
   // Smooth scroll
   document.querySelectorAll('a[href^="#"]').forEach(anchor => {

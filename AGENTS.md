@@ -49,6 +49,11 @@ and Vercel. No build step.
   saved by Supabase and restored on every page, and their profile prefills the
   checkout form. Only "Log out" ends it.
 - Unavailable dishes cannot be ordered.
+- The floating "Chat with Iris" button is mounted by `site.js` on every
+  customer page and reads its address from `IRIS_CHAT_URL` at the top of that
+  file. It is still `PASTE_IRIS_URL_HERE`, so the panel says "Iris is not
+  connected yet" instead of loading a frame. `admin.html` does not load
+  `site.js`, so the dashboard never gets the button.
 - Never show raw errors to customers — friendly messages only, and keep their
   cart and typed details on any failure.
 
@@ -60,12 +65,10 @@ Run the whole suite before calling a task done.
 
     npm install && npx playwright install chromium && npm test
 
-`admin-call.spec.js` covers the admin dashboard and stubs all of it, sign-in
-included, so the dashboard tests also never reach the live project. Note the
-shape when adding more admin specs: supabase-js posts functions to
-`/rest/v1/rpc/<function name>` (the name is in the path, not the body), and
-the dashboard's Realtime socket cannot be routed by Playwright — that spec
-points it at a dead port instead.
+`iris-chat.spec.js` covers the floating Iris button. For the "Iris is
+connected" branch it serves `site.js` with `IRIS_CHAT_URL` replaced by a fake
+address and routes that address locally, so the suite still never reaches the
+live project.
 
 `live-order.spec.js` (real account + order) only runs when `E2E_PLACE_ORDER=1`
 is set — in PowerShell: `$env:E2E_PLACE_ORDER="1"`. It also needs

@@ -2901,3 +2901,188 @@ body.acct-lock {
     white-space: nowrap;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   IRIS CHAT — floating button + panel (customer pages only)
+   site.js mounts both; admin.html never loads site.js.
+   ═══════════════════════════════════════════════════════════ */
+.iris-fab {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 1170;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.7rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background-color: var(--panel);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  color: var(--heading);
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.iris-fab:hover {
+  color: var(--sage);
+}
+
+.iris-fab:focus-visible,
+.iris-chat-close:focus-visible,
+.iris-chat-open:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The cart drawer owns this corner while it is open. */
+.iris-fab--hidden {
+  display: none;
+}
+
+.iris-fab-icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.iris-chat {
+  position: fixed;
+  right: 1rem;
+  /* Sits directly above the button, so the two read as one control. */
+  bottom: calc(1rem + 3.5rem);
+  z-index: 1180;
+  width: min(380px, calc(100vw - 2rem));
+  height: min(560px, calc(100vh - 8rem));
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background-color: var(--panel);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: visibility 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+.iris-chat.open {
+  visibility: visible;
+  opacity: 1;
+  transform: none;
+}
+
+.iris-chat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex: none;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.iris-chat-title {
+  margin: 0;
+  font-family: 'Fraunces', serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--heading);
+}
+
+.iris-chat-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.iris-chat-open {
+  color: var(--sage);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: underline;
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+}
+
+.iris-chat-open:hover {
+  color: var(--accent);
+}
+
+.iris-chat-close {
+  background: none;
+  border: none;
+  color: var(--heading);
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+}
+
+.iris-chat-close:hover {
+  color: var(--accent);
+}
+
+.iris-chat-body {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+}
+
+.iris-chat-frame {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+}
+
+/* No iframe until Iris has an address, so the message gets the whole body. */
+.iris-chat-frame:empty {
+  display: none;
+}
+
+.iris-chat-iframe {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* While IRIS_CHAT_URL is still the placeholder this is the only body
+   content, so it centres itself in the panel. */
+.iris-chat-off {
+  margin: auto;
+  padding: 1rem;
+  color: var(--muted);
+  font-size: 0.9375rem;
+  text-align: center;
+}
+
+.iris-chat-off[hidden] {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  /* Above the sticky cart bar (0.75rem + its own height), never on top of
+     it, and full screen once open. */
+  .iris-fab {
+    right: 0.75rem;
+    bottom: 5.25rem;
+  }
+
+  .iris-chat {
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+}
